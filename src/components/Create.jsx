@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Upload, Plus } from 'lucide-react'
-import { useStore, upsert, upsertRows, uid } from '../lib/store'
+import { useStore, upsert, upsertRows, uid, askSyncDecision } from '../lib/store'
 import { renderContent } from '../lib/render'
 import { color } from '../lib/palette'
 import { plural } from '../lib/day'
@@ -33,7 +33,7 @@ export function parseBulk(text, kind) {
   return out.filter((c) => c.front && c.back)
 }
 
-export function CreateSheet({ open, onClose, deckId: fixedDeck, onNewSection }) {
+export function CreateSheet({ open, onClose: close, deckId: fixedDeck, onNewSection }) {
   const sections = useStore((s) => s.sections)
   const decks = useStore((s) => s.decks)
   const liveSections = useMemo(() => Object.values(sections).filter((s) => !s.deleted).sort((a, b) => a.sort - b.sort), [sections])
@@ -42,13 +42,22 @@ export function CreateSheet({ open, onClose, deckId: fixedDeck, onNewSection }) 
   const [deckId, setDeckId] = useState(null)
   const [newDeck, setNewDeck] = useState(null) // { name, kind }
   const [added, setAdded] = useState(0)
+  const onClose = () => {
+    close()
+    if (added) askSyncDecision(`Добавлено ${added} ${plural(added, 'карточка', 'карточки', 'карточек')}`)
+  }
 
   useEffect(() => {
     if (!open) return
     const last = fixedDeck || localStorage.getItem('mq-lastdeck')
     const d = last && decks[last] && !decks[last].deleted ? decks[last] : null
-    setSectionId(d?.section_id || liveSections[0]?.id || null)
-    setDeckId(d?.id || null)
+    const sid = d?.section_id || liveSections[0]?.id || null
+    // Запомненной колоды нет — сразу берём первую колоду раздела (эффект ниже может не перезапуститься)
+    const first = Object.values(decks)
+      .filter((x) => x.section_id === sid && !x.deleted)
+      .sort((a, b) => a.sort - b.sort)[0]
+    setSectionId(sid)
+    setDeckId(d?.id || first?.id || null)
     setNewDeck(null)
     setAdded(0)
     setMode('one')
@@ -76,6 +85,7 @@ export function CreateSheet({ open, onClose, deckId: fixedDeck, onNewSection }) 
     upsertRows(
       'notes',
       cards.map((x, i) => ({ id: uid(), deck_id: deck.id, front: x.front, back: x.back, extra: x.extra || {}, format: 'md', tags: [], srs: {}, suspended: false, deleted: false, created_at: now + i })),
+      { hold: true },
     )
     localStorage.setItem('mq-lastdeck', deck.id)
     setAdded((a) => a + cards.length)

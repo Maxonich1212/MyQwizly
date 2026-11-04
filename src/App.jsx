@@ -17,6 +17,10 @@ import Stats from './screens/Stats'
 import Settings from './screens/Settings'
 import Import from './screens/Import'
 import Achievements, { AchievementWatcher } from './screens/Achievements'
+import Trash from './screens/Trash'
+import SyncAsk from './components/SyncAsk'
+import NewPassword from './components/NewPassword'
+import { ErrorBoundary, UpdateBanner } from './components/Safety'
 
 // Привычки — главный экран (нужны каждый день), карточки — вторая вкладка
 const TABS = [
@@ -31,7 +35,7 @@ const ROOTS = ['', 'cards', 'stats', 'settings']
 function depthOf(parts) {
   const a = parts[0] || ''
   if (ROOTS.includes(a)) return 0
-  if (['s', 'import', 'h', 'achievements'].includes(a)) return 1
+  if (['s', 'import', 'h', 'achievements', 'trash'].includes(a)) return 1
   if (a === 'd') return 2
   return 3
 }
@@ -47,6 +51,7 @@ function screenFor(parts) {
   if (a === 'settings') return <Settings />
   if (a === 'import') return <Import sectionId={b} />
   if (a === 'achievements') return <Achievements />
+  if (a === 'trash') return <Trash />
   return <Habits />
 }
 
@@ -80,7 +85,13 @@ export default function App() {
   }, [path])
 
   if (!ready) return null
-  if (!user) return <Auth />
+  if (!user)
+    return (
+      <>
+        <Auth />
+        <UpdateBanner />
+      </>
+    )
 
   const tabRoot = depth === 0
   const active = `/${parts[0] || ''}`
@@ -100,7 +111,7 @@ export default function App() {
         animate={{ opacity: 1, x: 0, y: 0, scale: 1, filter: 'blur(0px)', transitionEnd: { filter: 'none' } }}
         transition={{ ...liquid, opacity: { duration: 0.25 }, filter: { duration: 0.3 } }}
       >
-        {screenFor(parts)}
+        <ErrorBoundary key={path}>{screenFor(parts)}</ErrorBoundary>
       </motion.div>
 
       <AnimatePresence>
@@ -133,6 +144,9 @@ export default function App() {
       </AnimatePresence>
       <ToastHost />
       <AchievementWatcher />
+      <SyncAsk />
+      <NewPassword />
+      <UpdateBanner />
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
-import { useStore, updateSettings, syncNow, signOut } from '../lib/store'
+import { useStore, updateSettings, syncNow, signOut, releaseHeld } from '../lib/store'
+import { plural } from '../lib/day'
 import { go } from '../lib/ui'
 import Icon from '../components/Icon'
 import { Segmented, Stepper, Switch, soft, toast } from '../components/ui'
@@ -10,6 +11,25 @@ export default function Settings() {
   const s = useStore((st) => st.settings)
   const user = useStore((st) => st.user)
   const sync = useStore((st) => st.sync)
+  const pending = useStore((st) => st.pending)
+  const held = useStore((st) => st.held)
+  const waiting = pending - held
+
+  async function logout(asked) {
+    if (asked !== true && !confirm('Выйти из аккаунта? Данные останутся в облаке.')) return
+    try {
+      await signOut()
+    } catch (e) {
+      if (e.message !== 'unsynced') throw e
+      // Не даём потерять то, что ещё не в облаке
+      if (e.held && confirm(`${e.held} ${plural(e.held, 'запись хранится', 'записи хранятся', 'записей хранятся')} только на этом устройстве. Отправить в облако перед выходом?`)) {
+        releaseHeld()
+        await syncNow().catch(() => {})
+        return logout(true)
+      }
+      alert(`Не отправлено изменений: ${e.pending}. Подключись к интернету и подожди синхронизации — иначе они пропадут.`)
+    }
+  }
 
   const syncText =
     sync.status === 'syncing'
@@ -93,6 +113,7 @@ export default function Settings() {
             <div style={{ fontWeight: 600 }}>Синхронизация</div>
             <div className="small faint" style={{ overflowWrap: 'anywhere' }}>
               {syncText}
+              {waiting > 0 && ` · ждёт отправки: ${waiting}`}
             </div>
           </div>
           <button
@@ -106,6 +127,31 @@ export default function Settings() {
             Сейчас
           </button>
         </div>
+        {held > 0 && (
+          <div className="settings-row">
+            <Icon name="layers" size={20} style={{ color: 'var(--hard)' }} />
+            <div className="main">
+              <div style={{ fontWeight: 600 }}>Только на этом устройстве</div>
+              <div className="small faint">
+                {held} {plural(held, 'запись', 'записи', 'записей')} не отправлено в облако
+              </div>
+            </div>
+            <button className="btn primary sm" onClick={() => (releaseHeld(), toast('Отправляю в облако'))}>
+              Отправить
+            </button>
+          </div>
+        )}
+        <Row title="Спрашивать перед синхронизацией" hint="После импорта и добавления карточек">
+          <Switch on={s.askSync} onChange={(askSync) => updateSettings({ askSync })} />
+        </Row>
+        <button className="settings-row" style={{ width: '100%', textAlign: 'left' }} onClick={() => go('/trash')}>
+          <Icon name="trash" size={20} style={{ color: 'var(--text-2)' }} />
+          <div className="main">
+            <div style={{ fontWeight: 600 }}>Корзина и архив</div>
+            <div className="small faint">Вернуть удалённое случайно</div>
+          </div>
+          <Icon name="chevron" size={18} style={{ color: 'var(--text-3)' }} />
+        </button>
       </motion.div>
 
       <div className="section-label">Аккаунт</div>
@@ -117,13 +163,13 @@ export default function Settings() {
           <div className="main" style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {user?.email}
           </div>
-          <button className="btn danger sm" onClick={() => confirm('Выйти из аккаунта? Данные останутся в облаке.') && signOut()}>
+          <button className="btn danger sm" onClick={() => logout()}>
             <Icon name="logout" size={16} /> Выйти
           </button>
         </div>
       </motion.div>
       <p className="small faint" style={{ textAlign: 'center', marginTop: 24 }}>
-        My Habit Quizly · привычки + карточки FSRS
+        My Habit Quizly · версия {__APP_VERSION__}
       </p>
     </div>
   )

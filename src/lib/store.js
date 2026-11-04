@@ -18,6 +18,7 @@ export const DEFAULT_SETTINGS = {
   retention: 0.9,
   autoSpeak: true,
   haptics: true,
+  askSync: true,
 }
 
 let state = {
@@ -31,10 +32,16 @@ let state = {
   habit_logs: {},
   settings: DEFAULT_SETTINGS,
   sync: { status: 'idle', at: null, error: null },
+  // Сколько строк ждут отправки и сколько придержано «только на этом устройстве»
+  pending: 0,
+  held: 0,
+  syncAsk: null,
 }
 const listeners = new Set()
 const emptyDirty = () => ({ ...Object.fromEntries(TABLES.map((t) => [t, new Set()])), settings: false })
 let dirty = emptyDirty()
+// Придержанные строки: в dirty, но push их пропускает, пока пользователь не разрешит синхронизацию
+let held = emptyDirty()
 let pullCursor = {}
 let settingsUpdatedAt = 0
 let syncTimer = null
@@ -61,27 +68,44 @@ export function useStore(selector) {
 
 export const uid = () => crypto.randomUUID()
 
+function countPending() {
+  let pending = dirty.settings ? 1 : 0
+  let h = 0
+  for (const t of TABLES) {
+    h += held[t].size
+    pending += dirty[t].size
+  }
+  if (state.pending !== pending || state.held !== h) emit({ pending, held: h })
+}
+
 function persistDirty() {
   const plain = Object.fromEntries(TABLES.map((t) => [t, [...dirty[t]]]))
   plain.settings = dirty.settings
-  return idb.metaSet('dirty', plain)
+  countPending()
+  return Promise.all([idb.metaSet('dirty', plain), idb.metaSet('held', Object.fromEntries(TABLES.map((t) => [t, [...held[t]]])))])
 }
 
 // ——— Мутации ———
 
-export function upsertRows(table, rows) {
+// opts.hold — новые карточки из импорта/списка: не отправлять, пока пользователь не ответит «да»
+export function upsertRows(table, rows, opts = {}) {
   if (!rows.length) return
   const now = Date.now()
   const map = { ...state[table] }
   const saved = []
+  const hold = opts.hold && state.settings.askSync
   for (const r of rows) {
     const row = { ...r, updated_at: now }
     map[row.id] = row
     dirty[table].add(row.id)
+    if (hold) held[table].add(row.id)
     saved.push(row)
   }
   emit({ [table]: map })
-  if (state.user?.id === 'demo') return saved
+  if (state.user?.id === 'demo') {
+    countPending()
+    return saved
+  }
   idb.putMany(table, saved)
   persistDirty()
   scheduleSync()
@@ -116,6 +140,23 @@ export function updateSettings(changes) {
   idb.metaSet('settings', { data: next, updated_at: settingsUpdatedAt })
   persistDirty()
   scheduleSync()
+}
+
+// Спросить «синхронизировать со всеми устройствами?», если есть придержанные строки
+export function askSyncDecision(label) {
+  if (state.held) emit({ syncAsk: { label, count: state.held } })
+}
+
+export function resolveSync(yes) {
+  emit({ syncAsk: null })
+  if (yes) releaseHeld()
+}
+
+export function releaseHeld() {
+  held = emptyDirty()
+  if (state.user?.id === 'demo') return countPending()
+  persistDirty()
+  scheduleSync(0)
 }
 
 // ——— Загрузка и вход ———
@@ -161,18 +202,30 @@ async function loadLocal() {
   const d = (await idb.metaGet('dirty')) || {}
   for (const t of TABLES) dirty[t] = new Set(d[t] || [])
   dirty.settings = !!d.settings
+  const hd = (await idb.metaGet('held')) || {}
+  for (const t of TABLES) held[t] = new Set(hd[t] || [])
   pullCursor = (await idb.metaGet('cursor')) || {}
   const s = await idb.metaGet('settings')
   settingsUpdatedAt = s?.updated_at || 0
   patchState.settings = { ...DEFAULT_SETTINGS, ...(s?.data || {}) }
   emit(patchState)
+  countPending()
 }
 
-export async function signOut() {
+// Выход стирает локальные данные, поэтому сначала всё должно уйти в облако.
+// force — только если пользователь явно согласился потерять неотправленное
+export async function signOut({ force = false } = {}) {
   await syncNow().catch(() => {})
+  if (!force && (state.pending || state.held)) {
+    const err = new Error('unsynced')
+    err.pending = state.pending
+    err.held = state.held
+    throw err
+  }
   await sb.auth.signOut()
   await idb.clearAll()
   dirty = emptyDirty()
+  held = emptyDirty()
   pullCursor = {}
   emit({ ...Object.fromEntries(TABLES.map((t) => [t, {}])), settings: DEFAULT_SETTINGS, user: null })
 }
@@ -209,7 +262,7 @@ const stripRow = ({ server_at: _s, ...r }) => r
 async function push() {
   const user_id = state.user.id
   for (const t of TABLES) {
-    const ids = [...dirty[t]]
+    const ids = [...dirty[t]].filter((id) => !held[t].has(id))
     if (!ids.length) continue
     const rows = ids.map((id) => state[t][id]).filter(Boolean).map((r) => ({ ...stripRow(r), user_id }))
     for (let i = 0; i < rows.length; i += 400) {
@@ -264,9 +317,11 @@ function merge(table, rows) {
     if (local && dirty[table].has(r.id) && local.updated_at > r.updated_at) continue
     map[r.id] = r
     dirty[table].delete(r.id)
+    held[table].delete(r.id)
     changed.push(r)
   }
   if (!changed.length) return
   emit({ [table]: map })
   idb.putMany(table, changed)
+  persistDirty()
 }

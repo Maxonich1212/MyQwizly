@@ -1,9 +1,14 @@
 // Офлайн-кэш: страница — сначала сеть, ассеты с хэшами — сначала кэш. Supabase не трогаем.
-const CACHE = 'mq-v1'
+// __BUILD__ подставляется при сборке — новая сборка = новый sw.js = приложение видит обновление
+const CACHE = 'mq-__BUILD__'
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html'])))
-  self.skipWaiting()
+})
+
+// Новая версия ждёт, пока пользователь нажмёт «Обновить приложение»
+self.addEventListener('message', (e) => {
+  if (e.data === 'skip-waiting') self.skipWaiting()
 })
 
 self.addEventListener('activate', (e) => {

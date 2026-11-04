@@ -1,6 +1,7 @@
-import { getState, upsertRows, uid } from '../store'
+import { getState, upsertRows, uid, askSyncDecision } from '../store'
 import { saveMedia } from '../media'
 import { PALETTE, pickEmoji } from '../palette'
+import { plural } from '../day'
 
 export async function parseFile(file) {
   const name = file.name.toLowerCase()
@@ -95,9 +96,10 @@ export async function commitImport(parsed, plan) {
     }
   }
 
-  upsertRows('sections', newSections)
-  upsertRows('decks', newDecks)
-  upsertRows('notes', newNotes)
+  upsertRows('sections', newSections, { hold: true })
+  upsertRows('decks', newDecks, { hold: true })
+  upsertRows('notes', newNotes, { hold: true })
   if (parsed.media.length) await saveMedia(parsed.media)
+  if (newNotes.length) askSyncDecision(`Импортировано ${newNotes.length} ${plural(newNotes.length, 'карточка', 'карточки', 'карточек')}`)
   return { sections: newSections.length, decks: newDecks.length, notes: newNotes.length, skipped }
 }
