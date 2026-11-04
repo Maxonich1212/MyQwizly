@@ -3273,3 +3273,154 @@ html {
   overflow-wrap: normal;
   word-break: normal;
 }
+
+/* ═══ Карточка раздела (вкладка «Карточки») ═══ */
+.section-v2 {
+  padding: 16px 16px 14px;
+  overflow: hidden;
+}
+
+.section-v2::before {
+  background: radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--c) 24%, transparent), transparent 55%),
+    radial-gradient(90% 80% at 100% 100%, color-mix(in srgb, var(--c2) 14%, transparent), transparent 60%);
+}
+
+.sv2-watermark {
+  position: absolute !important;
+  right: -14px;
+  bottom: -26px;
+  font-size: 118px;
+  line-height: 1;
+  opacity: 0.07;
+  transform: rotate(-12deg);
+  pointer-events: none;
+  filter: grayscale(0.3);
+}
+
+.sv2-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.sv2-top h3 {
+  margin: 0 0 2px;
+  font-size: 18.5px;
+  font-weight: 750;
+  letter-spacing: -0.015em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sv2-top .desc {
+  font-size: 13.5px;
+  color: var(--text-2);
+}
+
+.sv2-emoji {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  font-size: 28px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, var(--c), var(--c2));
+  box-shadow: 0 10px 24px -10px var(--c), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.sv2-pct {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.sv2-bar {
+  display: flex;
+  gap: 3px;
+  height: 7px;
+  border-radius: 99px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.sv2-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  min-width: 4px;
+}
+
+.sv2-legend {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  margin: 8px 2px 14px;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+}
+
+.sv2-bottom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sv2-decks {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 6px;
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, #000 85%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent);
+}
+
+.sv2-deck {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border-radius: 99px;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--text-2);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  border: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.sv2-study {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 99px;
+  font-weight: 800;
+  font-size: 14px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--c), var(--c2));
+  box-shadow: 0 8px 20px -8px var(--c);
+}
+
+.sv2-done {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  color: var(--good);
+  background: color-mix(in srgb, var(--good) 14%, transparent);
+}
+
+.sv2-top h3 {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.2;
+}

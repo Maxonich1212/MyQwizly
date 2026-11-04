@@ -2,15 +2,15 @@ import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Plus, Play, Trophy } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { useDays, useStreak, useToday, useSectionStreaks, useQueueState } from '../lib/hooks'
+import { useStreak, useToday, useSectionStreaks, useQueueState, useDue } from '../lib/hooks'
 import { buildQueue } from '../lib/queue'
 import { go } from '../lib/ui'
 import { color } from '../lib/palette'
 import { goalFor } from '../lib/stats'
-import { dayKey, fmtDay, plural, addDays } from '../lib/day'
+import { dayKey, fmtDay, plural } from '../lib/day'
 import { noteStatus } from '../lib/srs'
 import { Ring, Flame, Counter } from '../components/ui'
-import { DotGrid, liquid } from '../components/fluid'
+import { liquid } from '../components/fluid'
 import { SectionEditor } from '../components/Editors'
 import { CreateSheet } from '../components/Create'
 
@@ -175,56 +175,106 @@ export default function Home() {
   )
 }
 
+// Карточка раздела: градиентная плашка, кольцо «выучено», полоса состава, колоды и кнопка «Учить»
 function SectionCard({ section, i }) {
   const decks = useStore((s) => s.decks)
   const notes = useStore((s) => s.notes)
-  const days = useDays()
   const streaks = useSectionStreaks()
+  const due = useDue({ sectionId: section.id })
   const st = streaks[section.id]
   const c = color(section.color)
 
-  const { total, mature } = useMemo(() => {
-    let total = 0
-    let mature = 0
+  const { comp, deckList } = useMemo(() => {
+    const deckList = Object.values(decks)
+      .filter((d) => d.section_id === section.id && !d.deleted)
+      .sort((a, b) => a.sort - b.sort)
+    const comp = { total: 0, new: 0, learning: 0, review: 0, mature: 0 }
     for (const n of Object.values(notes)) {
       const d = decks[n.deck_id]
       if (n.deleted || !d || d.deleted || d.section_id !== section.id) continue
-      total++
-      if (noteStatus(n, d).mature) mature++
+      comp.total++
+      comp[noteStatus(n, d).status]++
     }
-    return { total, mature }
+    return { comp, deckList }
   }, [notes, decks, section.id])
 
-  const goal = section.goal || 10
-  const level = (d) => {
-    const n = days[d]?.sections[section.id] || 0
-    return n ? Math.min(1, 0.25 + n / goal / 1.4) : 0
-  }
+  const pct = comp.total ? Math.round((comp.mature / comp.total) * 100) : 0
+  const parts = [
+    { k: 'new', color: 'color-mix(in srgb, var(--text) 22%, transparent)' },
+    { k: 'learning', color: 'var(--hard)' },
+    { k: 'review', color: 'var(--easy)' },
+    { k: 'mature', color: 'var(--good)' },
+  ]
 
   return (
     <motion.div
-      className="tint-card habit-card press"
-      style={{ '--c': c.from }}
+      className="tint-card section-v2 press"
+      style={{ '--c': c.from, '--c2': c.to }}
       initial={{ opacity: 0, y: 22, scale: 0.97 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ ...liquid, delay: 0.08 + i * 0.05 }}
       onClick={() => go(`/s/${section.id}`)}
     >
-      <div className="top">
-        <div className="ico-sq">{section.emoji || '📚'}</div>
+      <div className="sv2-watermark" aria-hidden="true">
+        {section.emoji || '📚'}
+      </div>
+
+      <div className="sv2-top">
+        <div className="sv2-emoji">{section.emoji || '📚'}</div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <h3>{section.name}</h3>
           <div className="desc">
-            {total} {plural(total, 'карточка', 'карточки', 'карточек')} · выучено {total ? Math.round((mature / total) * 100) : 0}%
+            {deckList.length} {plural(deckList.length, 'колода', 'колоды', 'колод')} · {comp.total} {plural(comp.total, 'карточка', 'карточки', 'карточек')}
           </div>
         </div>
+        <Ring value={pct / 100} size={54} stroke={5} from={c.from} to={c.to}>
+          <span className="sv2-pct">{pct}%</span>
+        </Ring>
+      </div>
+
+      <div className="sv2-bar">
+        {parts.map((p) =>
+          comp[p.k] ? <motion.i key={p.k} style={{ background: p.color }} initial={{ flexGrow: 0 }} animate={{ flexGrow: comp[p.k] }} transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1], delay: 0.15 }} /> : null,
+        )}
+        {!comp.total && <i style={{ flexGrow: 1 }} />}
+      </div>
+      <div className="sv2-legend mono-label">
+        <span>новые {comp.new}</span>
+        <span>учу {comp.learning}</span>
+        <span>повтор {comp.review}</span>
+        <span style={{ color: comp.mature ? 'var(--good)' : undefined }}>выучено {comp.mature}</span>
+      </div>
+
+      <div className="sv2-bottom">
+        <div className="sv2-decks">
+          {deckList.slice(0, 3).map((d) => (
+            <span key={d.id} className="sv2-deck">
+              {d.kind === 'vocab' ? '🔤' : '💬'} {d.name}
+            </span>
+          ))}
+          {deckList.length > 3 && <span className="sv2-deck">+{deckList.length - 3}</span>}
+          {!deckList.length && <span className="small faint">Пока нет колод</span>}
+        </div>
         {st?.current > 0 && (
-          <span className="chip" style={{ gap: 4 }}>
-            <Flame size={14} animated={false} active={st.todayDone} /> {st.current}
+          <span className="chip" style={{ gap: 4, flexShrink: 0 }}>
+            <Flame size={13} animated={false} active={st.todayDone} /> {st.current}
           </span>
         )}
+        {due.total > 0 ? (
+          <motion.button
+            className="sv2-study"
+            whileTap={{ scale: 0.92 }}
+            onClick={(e) => {
+              e.stopPropagation()
+              go(`/study/s:${section.id}`)
+            }}
+          >
+            <Play size={13} fill="currentColor" /> {due.total}
+          </motion.button>
+        ) : comp.total ? (
+          <span className="sv2-done">✓</span>
+        ) : null}
       </div>
-      <DotGrid level={level} color={c.from} from={addDays(dayKey(), -400)} />
     </motion.div>
   )
 }
