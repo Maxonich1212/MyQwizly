@@ -108,3 +108,9 @@ create policy media_upd on storage.objects for update to authenticated
   using (bucket_id = 'media' and (storage.foldername(name))[1] = (select auth.uid())::text);
 create policy media_del on storage.objects for delete to authenticated
   using (bucket_id = 'media' and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+-- ——— Добавлено позже (миграции habits, backup_keys, push_reminders) ———
+-- habits / habit_logs — трекер привычек (id лога = "<habit_id>:<день>")
+-- backup_keys — sha-256 ключа ночного бэкапа (edge-функция backup, репо Maxonich1212/myqwizly-backups)
+-- push_subs / push_log / app_secrets — напоминания: edge-функция remind, pg_cron 'habit-remind' каждые 5 минут
+-- Полный DDL см. в истории миграций проекта Supabase (list_migrations).

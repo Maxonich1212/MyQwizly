@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { useStore, updateSettings, syncNow, signOut, releaseHeld } from '../lib/store'
 import { plural } from '../lib/day'
 import { confirmDialog } from '../components/Dialog'
+import Reminders from '../components/Reminders'
 import { go } from '../lib/ui'
 import Icon from '../components/Icon'
 import { Segmented, Stepper, Switch, soft, toast } from '../components/ui'
@@ -168,6 +169,11 @@ export default function Settings() {
           </div>
           <Icon name="chevron" size={18} style={{ color: 'var(--text-3)' }} />
         </button>
+      </motion.div>
+
+      <div className="section-label">Напоминания</div>
+      <motion.div className="card" {...fade(3)}>
+        <Reminders />
       </motion.div>
 
       <div className="section-label">Аккаунт</div>

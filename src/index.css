@@ -3424,3 +3424,12 @@ html {
   -webkit-box-orient: vertical;
   line-height: 1.2;
 }
+
+.time-input {
+  width: 120px;
+  height: 40px;
+  padding: 0 12px;
+  text-align: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}

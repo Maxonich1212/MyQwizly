@@ -52,3 +52,40 @@ self.addEventListener('fetch', (e) => {
     ),
   )
 })
+
+// ——— Напоминания ———
+self.addEventListener('push', (e) => {
+  let data = {}
+  try {
+    data = e.data ? e.data.json() : {}
+  } catch {
+    data = { body: e.data && e.data.text() }
+  }
+  e.waitUntil(
+    self.registration.showNotification(data.title || 'My Habit Quizly', {
+      body: data.body || '',
+      icon: './icon-192.png',
+      badge: './icon-192.png',
+      tag: 'mq-remind',
+      renotify: true,
+      data: { url: data.url || './' },
+    }),
+  )
+})
+
+// Нажатие на уведомление — открыть приложение (или переключиться на уже открытое) на нужном экране
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close()
+  const url = new URL(e.notification.data?.url || './', self.registration.scope).href
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const c of list) {
+        if ('focus' in c) {
+          c.navigate?.(url)
+          return c.focus()
+        }
+      }
+      return self.clients.openWindow(url)
+    }),
+  )
+})
