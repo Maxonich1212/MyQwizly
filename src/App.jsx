@@ -132,22 +132,7 @@ export default function App() {
             exit={{ y: 90, x: '-50%', opacity: 0 }}
             transition={liquid}
           >
-            {TABS.map((t) => {
-              const on = active === t.path
-              return (
-                <button key={t.path} className={on ? 'on' : ''} onClick={() => go(t.path)} aria-label={t.label}>
-                  {on && <motion.span layoutId="tabpill" className="pill" transition={{ type: 'spring', stiffness: 480, damping: 38 }} />}
-                  <t.icon size={21} strokeWidth={on ? 2.3 : 2} />
-                  <AnimatePresence initial={false}>
-                    {on && (
-                      <motion.span className="label" initial={{ width: 0, opacity: 0 }} animate={{ width: 'auto', opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ type: 'spring', stiffness: 500, damping: 40 }}>
-                        {t.label}
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
-                </button>
-              )
-            })}
+            <TabBar active={active} />
           </motion.nav>
         )}
       </AnimatePresence>
@@ -157,6 +142,36 @@ export default function App() {
       <NewPassword />
       <UpdateBanner />
       <DialogHost />
+    </div>
+  )
+}
+
+// Таб-бар как в iOS: вкладки одинаковой ширины, подсветка перетекает между ними каплей.
+// Позиция считается от индекса, а не от размеров элементов, — поэтому никаких «выездов» сбоку
+function TabBar({ active }) {
+  const idx = Math.max(0, TABS.findIndex((t) => t.path === active))
+  const prev = useRef(idx)
+  const jump = Math.abs(idx - prev.current)
+  useEffect(() => {
+    prev.current = idx
+  }, [idx])
+  return (
+    <div className="tabs" style={{ '--n': TABS.length }}>
+      <motion.span
+        className="tab-pill"
+        initial={false}
+        animate={{ x: `${idx * 100}%`, scaleX: jump ? [1, 1 + 0.12 * jump, 1] : 1, scaleY: jump ? [1, 0.9, 1] : 1 }}
+        transition={{ x: { type: 'spring', stiffness: 420, damping: 34 }, scaleX: { duration: 0.42, ease: 'easeOut' }, scaleY: { duration: 0.42, ease: 'easeOut' } }}
+      />
+      {TABS.map((t) => {
+        const on = active === t.path
+        return (
+          <motion.button key={t.path} className={on ? 'on' : ''} onClick={() => !on && go(t.path)} aria-label={t.label} whileTap={{ scale: 0.9 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}>
+            <t.icon size={21} strokeWidth={on ? 2.3 : 1.9} />
+            <span className="label">{t.label}</span>
+          </motion.button>
+        )
+      })}
     </div>
   )
 }
