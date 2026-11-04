@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Pencil } from 'lucide-react'
+import { Pencil, Search } from 'lucide-react'
 import { upsert, patch, uid, getState } from '../lib/store'
 import { HABIT_COLORS, WEEKDAYS_SHORT, targetOf, tapHabit } from '../lib/habits'
 import { dayKey, fmtDay } from '../lib/day'
-import HabitIcon, { HABIT_ICONS } from './HabitIcon'
+import HabitIcon, { searchIcons } from './HabitIcon'
 import { Sheet, Segmented, Stepper } from './ui'
 import { liquid } from './fluid'
 
@@ -13,11 +13,13 @@ const BLANK = { name: '', description: '', icon: 'activity', color: HABIT_COLORS
 export function HabitEditor({ open, habit, preset, onClose, categories = [] }) {
   const [f, setF] = useState(BLANK)
   const [icons, setIcons] = useState(false)
+  const [iconQuery, setIconQuery] = useState('')
   useEffect(() => {
     if (!open) return
     const src = habit || { ...BLANK, ...(preset || {}) }
     setF({ ...BLANK, ...src, repeat: { ...BLANK.repeat, ...(src.repeat || {}) }, description: src.description || '', unit: src.unit || '', category: src.category || '' })
     setIcons(false)
+    setIconQuery('')
   }, [open, habit, preset])
 
   const set = (k) => (v) => setF((x) => ({ ...x, [k]: v }))
@@ -67,8 +69,13 @@ export function HabitEditor({ open, habit, preset, onClose, categories = [] }) {
         <AnimatePresence initial={false}>
           {icons && (
             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={liquid} style={{ overflow: 'hidden' }}>
+              <div className="search" style={{ marginBottom: 10 }}>
+                <Search size={17} />
+                <input className="input" value={iconQuery} onChange={(e) => setIconQuery(e.target.value)} placeholder="Поиск: вода, книга, спорт…" style={{ height: 44, padding: '0 14px 0 40px' }} />
+              </div>
+              {searchIcons(iconQuery).length === 0 && <div className="small faint" style={{ textAlign: 'center', padding: '10px 0 16px' }}>Ничего не нашлось — попробуй другое слово</div>}
               <div className="icon-grid" style={{ marginBottom: 18 }}>
-                {Object.keys(HABIT_ICONS).map((k) => (
+                {searchIcons(iconQuery).map((k) => (
                   <button key={k} className={f.icon === k ? 'on' : ''} onClick={() => setF((x) => ({ ...x, icon: k }))}>
                     <HabitIcon name={k} size={20} />
                   </button>

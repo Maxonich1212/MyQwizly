@@ -1,9 +1,6 @@
 import { useMemo, useState } from 'react'
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
-import { Plus, LayoutGrid, ListChecks, CalendarDays, CalendarCheck, StickyNote, Pencil, ArrowUpDown, Archive, Trash2, ChevronLeft, ChevronRight, Layers, Play } from 'lucide-react'
-import { useDue, useStreak } from '../lib/hooks'
-import { useSecondsPerCard } from './Home'
-import { Flame } from '../components/ui'
+import { Plus, LayoutGrid, ListChecks, CalendarDays, CalendarCheck, StickyNote, Pencil, ArrowUpDown, Archive, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { patch, remove } from '../lib/store'
 import { useHabits, useHabitLogs, progressOf, isScheduled, tapHabit, habitStats, targetOf, createdDay, setNote } from '../lib/habits'
 import { addDays, dayKey, parseKey, fmtDay, monthName, plural } from '../lib/day'
@@ -92,19 +89,20 @@ export default function Habits() {
             Привычки
           </h1>
         </div>
-        <motion.button className="round accent" whileTap={{ scale: 0.88 }} transition={liquid} onClick={() => setEditor({})} aria-label="Новая привычка">
-          <Plus size={22} strokeWidth={2.4} />
+        <motion.button className="add-pill shine" whileTap={{ scale: 0.93 }} transition={liquid} onClick={() => setEditor({})} aria-label="Новая привычка">
+          <span className="add-ico">
+            <Plus size={17} strokeWidth={2.8} />
+          </span>
+          Привычка
         </motion.button>
       </div>
 
-      <QuizlyBanner />
-
       {habits.length > 0 && (
         <div className="row" style={{ marginBottom: 14, gap: 10 }}>
-          <div className="segmented" style={{ borderRadius: 99, padding: 4 }}>
+          <div className="view-switch">
             {VIEWS.map((v) => (
-              <button key={v.value} className={view === v.value ? 'on' : ''} onClick={() => changeView(v.value)} style={{ borderRadius: 99, padding: '8px 14px' }} aria-label={v.value}>
-                {view === v.value && <motion.span layoutId="hview" className="thumb" style={{ borderRadius: 99 }} transition={liquid} />}
+              <button key={v.value} className={view === v.value ? 'on' : ''} onClick={() => changeView(v.value)} aria-label={v.value}>
+                {view === v.value && <motion.span layoutId="hview" className="vs-thumb" transition={{ type: 'spring', stiffness: 420, damping: 34 }} />}
                 <v.icon size={18} />
               </button>
             ))}
@@ -153,47 +151,6 @@ export default function Habits() {
       <HabitEditor open={!!editor} habit={editor?.id ? editor : null} preset={editor && !editor.id ? editor : null} onClose={() => setEditor(null)} categories={cats} />
       <ValueSheet target={valueFor} logs={logs} onClose={() => setValueFor(null)} />
     </div>
-  )
-}
-
-// Плашка-переход в карточки: сколько ждёт и сколько это займёт
-function QuizlyBanner() {
-  const due = useDue({ all: true })
-  const spc = useSecondsPerCard()
-  const streak = useStreak()
-  const has = due.total > 0
-  return (
-    <motion.button
-      className="tint-card"
-      style={{ '--c': '#7c7eff', display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 14px', marginBottom: 16, textAlign: 'left' }}
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={liquid}
-      whileTap={{ scale: 0.98 }}
-      onClick={() => go(has ? '/study/all' : '/cards')}
-    >
-      <div className="ico-sq sm">
-        <Layers size={19} />
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 700 }}>Quizly</div>
-        <div className="small muted">
-          {has ? `${due.total} ${plural(due.total, 'карточка', 'карточки', 'карточек')} · ≈ ${Math.max(1, Math.round((due.total * spc) / 60))} мин` : 'Карточки на сегодня повторены'}
-        </div>
-      </div>
-      {streak.current > 0 && (
-        <span className="chip" style={{ gap: 4 }}>
-          <Flame size={14} animated={false} active={streak.todayDone} /> {streak.current}
-        </span>
-      )}
-      {has ? (
-        <span className="play" style={{ background: 'linear-gradient(135deg,#7c7eff,#9a6cff)', '--c': '#7c7eff', width: 38, height: 38 }}>
-          <Play size={15} fill="currentColor" />
-        </span>
-      ) : (
-        <ChevronRight size={18} className="faint" />
-      )}
-    </motion.button>
   )
 }
 

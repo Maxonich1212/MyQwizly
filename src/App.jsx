@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { CalendarCheck, Layers, ChartNoAxesColumn, Settings as SettingsIcon } from 'lucide-react'
 import { useStore } from './lib/store'
@@ -22,6 +22,7 @@ import SyncAsk from './components/SyncAsk'
 import NewPassword from './components/NewPassword'
 import { ErrorBoundary, UpdateBanner } from './components/Safety'
 import { DialogHost } from './components/Dialog'
+import Splash from './components/Splash'
 
 // Привычки — главный экран (нужны каждый день), карточки — вторая вкладка
 const TABS = [
@@ -85,9 +86,18 @@ export default function App() {
     window.scrollTo(0, 0)
   }, [path])
 
-  if (!ready) return null
-  if (!user)
-    return (
+  const hideBar = useHideOnScroll(path)
+
+  // Загрузочный экран держим минимум ~0.9 с, чтобы он не мелькал, и плавно растворяем
+  const [showSplash, setShowSplash] = useState(true)
+  const bootAt = useRef(performance.now())
+  useEffect(() => {
+    if (!ready) return
+    const t = setTimeout(() => setShowSplash(false), Math.max(0, 900 - (performance.now() - bootAt.current)))
+    return () => clearTimeout(t)
+  }, [ready])
+
+  const content = !ready ? null : !user ? (
       <>
         <div className="ambient" aria-hidden="true">
           <i />
@@ -99,13 +109,23 @@ export default function App() {
         <NewPassword />
         <DialogHost />
       </>
-    )
+    ) : null
 
   const tabRoot = depth === 0
+  const barHidden = hideBar && tabRoot
   const active = `/${parts[0] || ''}`
+
+  if (content || !ready)
+    return (
+      <>
+        {content}
+        <AnimatePresence>{showSplash && <Splash key="splash" />}</AnimatePresence>
+      </>
+    )
 
   return (
     <div className="app">
+      <AnimatePresence>{showSplash && <Splash key="splash" />}</AnimatePresence>
       <div className="top-fade" aria-hidden="true" />
       <div className="ambient" aria-hidden="true">
         <i />
@@ -128,9 +148,9 @@ export default function App() {
           <motion.nav
             className="tabbar"
             initial={{ y: 90, x: '-50%', opacity: 0 }}
-            animate={{ y: 0, x: '-50%', opacity: 1 }}
+            animate={{ y: barHidden ? 110 : 0, x: '-50%', opacity: barHidden ? 0 : 1 }}
             exit={{ y: 90, x: '-50%', opacity: 0 }}
-            transition={liquid}
+            transition={{ type: 'spring', stiffness: 380, damping: 34 }}
           >
             <TabBar active={active} />
           </motion.nav>
@@ -174,4 +194,30 @@ function TabBar({ active }) {
       })}
     </div>
   )
+}
+
+// Прячем таб-бар при прокрутке вниз (чтобы не мешал смотреть), показываем при прокрутке вверх и у самого верха
+function useHideOnScroll(resetKey) {
+  const [hidden, setHidden] = useState(false)
+  useEffect(() => {
+    setHidden(false)
+    let last = window.scrollY
+    let acc = 0
+    const on = () => {
+      const y = window.scrollY
+      const d = y - last
+      last = y
+      if (y < 30) {
+        acc = 0
+        return setHidden(false)
+      }
+      // Копим смещение в одну сторону, чтобы не дёргался от дрожания пальца
+      acc = Math.sign(d) === Math.sign(acc) ? acc + d : d
+      if (acc > 6) setHidden(true)
+      else if (acc < -10) setHidden(false)
+    }
+    window.addEventListener('scroll', on, { passive: true })
+    return () => window.removeEventListener('scroll', on)
+  }, [resetKey])
+  return hidden
 }

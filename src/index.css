@@ -3021,3 +3021,126 @@ body {
     width: 70px;
   }
 }
+
+/* Полосы прокрутки не нужны — листается жестами */
+html,
+body,
+.sheet,
+.chips,
+* {
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Сегменты: содержимое строго по центру (иконки больше не «подпрыгивают» вверх) */
+.segmented button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  line-height: 1;
+}
+
+.segmented button svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+/* Переключатель вида привычек — одна высота с чипами категорий */
+.view-switch {
+  display: inline-flex;
+  align-items: center;
+  height: 42px;
+  padding: 3px;
+  gap: 2px;
+  border-radius: 99px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.view-switch button {
+  position: relative;
+  width: 46px;
+  height: 34px;
+  border-radius: 99px;
+  display: grid;
+  place-items: center;
+  color: var(--text-3);
+  transition: color 0.2s;
+}
+
+.view-switch button.on {
+  color: var(--text);
+}
+
+.view-switch button svg {
+  position: relative;
+  z-index: 1;
+  display: block;
+}
+
+.vs-thumb {
+  position: absolute;
+  inset: 0;
+  border-radius: 99px;
+  background: var(--surface-3);
+  border: 1px solid var(--line-2);
+}
+
+.pill {
+  height: 42px;
+}
+
+/* Кнопка «+ Привычка»: вытянутая капсула с подсветкой */
+.add-pill {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  height: 46px;
+  padding: 0 20px 0 7px;
+  border-radius: 99px;
+  font-weight: 750;
+  font-size: 15.5px;
+  color: #fff;
+  background: linear-gradient(135deg, #7c7eff 0%, #9a6cff 55%, #c06cf0 100%);
+  box-shadow: 0 10px 26px -10px rgba(124, 126, 255, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  flex-shrink: 0;
+}
+
+.add-pill .add-ico {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.add-pill.shine::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40%;
+  left: -60%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transform: skewX(-20deg);
+  animation: shine 5s ease-in-out infinite 2s;
+}
+
+/* Шапка: заголовок и кнопка по одной линии */
+.head {
+  align-items: flex-end;
+}
+
+.head .add-pill,
+.head .round {
+  margin-bottom: 2px;
+}
