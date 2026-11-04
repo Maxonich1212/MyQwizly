@@ -5,6 +5,7 @@ import { renderContent } from '../lib/render'
 import { back } from '../lib/ui'
 import { Sheet, Segmented, Stepper, toast } from './ui'
 import Icon from './Icon'
+import { confirmDialog } from './Dialog'
 
 export function SectionEditor({ open, onClose, section }) {
   const [name, setName] = useState('')
@@ -27,8 +28,8 @@ export function SectionEditor({ open, onClose, section }) {
     onClose()
   }
 
-  function del() {
-    if (!confirm(`Удалить раздел «${section.name}» со всеми колодами?`)) return
+  async function del() {
+    if (!(await confirmDialog({ title: `Удалить раздел «${section.name}»?`, text: 'Вместе с колодами. Всё попадёт в корзину — вернуть можно в Настройках.', ok: 'Удалить', danger: true }))) return
     const { decks } = getState()
     for (const d of Object.values(decks)) if (d.section_id === section.id && !d.deleted) remove('decks', d.id)
     remove('sections', section.id)
@@ -103,8 +104,8 @@ export function DeckEditor({ open, onClose, sectionId, deck }) {
     onClose()
   }
 
-  function del() {
-    if (!confirm(`Удалить колоду «${deck.name}»?`)) return
+  async function del() {
+    if (!(await confirmDialog({ title: `Удалить колоду «${deck.name}»?`, text: 'Она попадёт в корзину — вернуть можно в Настройках.', ok: 'Удалить', danger: true }))) return
     remove('decks', deck.id)
     onClose()
     back()

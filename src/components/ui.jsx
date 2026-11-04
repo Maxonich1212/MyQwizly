@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { AnimatePresence, motion, animate, useMotionValue, useTransform } from 'framer-motion'
+import { AnimatePresence, motion, animate, useMotionValue, useTransform, useDragControls } from 'framer-motion'
+import { createPortal } from 'react-dom'
 import Icon from './Icon'
 import { back } from '../lib/ui'
 
@@ -18,15 +19,23 @@ export function TopBar({ title, onBack, right, fallback = '/' }) {
   )
 }
 
+// Шторка: листается как обычная страница, закрывается свайпом вниз только за полоску сверху.
+// Рендерится в body (портал) — так её не обрезают трансформации экрана, а фон под ней не прокручивается
 export function Sheet({ open, onClose, title, children }) {
+  const controls = useDragControls()
   useEffect(() => {
     if (!open) return
     const on = (e) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', on)
-    return () => window.removeEventListener('keydown', on)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', on)
+      document.body.style.overflow = prev
+    }
   }, [open, onClose])
   const wide = typeof window !== 'undefined' && window.innerWidth >= 720
-  return (
+  return createPortal(
     <AnimatePresence>
       {open && (
         <>
@@ -36,19 +45,24 @@ export function Sheet({ open, onClose, title, children }) {
             initial={wide ? { opacity: 0, scale: 0.94, y: '-46%' } : { y: '100%' }}
             animate={wide ? { opacity: 1, scale: 1, y: '-50%' } : { y: 0 }}
             exit={wide ? { opacity: 0, scale: 0.96, y: '-48%' } : { y: '100%' }}
-            transition={soft}
+            transition={{ type: 'spring', stiffness: 380, damping: 36 }}
             drag={wide ? false : 'y'}
+            dragListener={false}
+            dragControls={controls}
             dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={{ top: 0, bottom: 0.6 }}
-            onDragEnd={(_, i) => (i.offset.y > 110 || i.velocity.y > 600) && onClose()}
+            dragElastic={{ top: 0, bottom: 0.7 }}
+            onDragEnd={(_, i) => (i.offset.y > 100 || i.velocity.y > 500) && onClose()}
           >
-            <div className="grabber" />
+            <div className="sheet-handle" onPointerDown={(e) => controls.start(e)}>
+              <div className="grabber" />
+            </div>
             {title && <h3>{title}</h3>}
             {children}
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   )
 }
 
@@ -142,14 +156,7 @@ export function Ring({ value, size = 120, stroke = 12, from = '#6366f1', to = '#
 export function Flame({ size = 22, active = true, animated = true }) {
   const id = useId().replace(/:/g, '')
   return (
-    <motion.svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      animate={active && animated ? { scale: [1, 1.08, 1], rotate: [0, -2, 2, 0] } : {}}
-      transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
-      style={{ transformOrigin: '50% 90%', flexShrink: 0 }}
-    >
+    <svg width={size} height={size} viewBox="0 0 24 24" className={active && animated ? 'flame-live' : undefined} style={{ flexShrink: 0 }}>
       <defs>
         <linearGradient id={`f${id}`} x1="0" y1="1" x2="0" y2="0">
           <stop offset="0" stopColor={active ? '#ff4d1a' : '#9aa0ad'} />
@@ -161,7 +168,7 @@ export function Flame({ size = 22, active = true, animated = true }) {
         fill={`url(#f${id})`}
       />
       <path d="M12 21.5a3.6 3.6 0 0 1-3.6-3.6c0-2 1.6-3.2 2.6-4.6.4 1.2 1.3 1.8 2.2 2.1.4-1 .4-1.9.3-2.8 1.3 1.1 2.1 2.8 2.1 4.6a3.6 3.6 0 0 1-3.6 4.3z" fill={active ? '#ffe08a' : '#e1e4ea'} opacity="0.9" />
-    </motion.svg>
+    </svg>
   )
 }
 

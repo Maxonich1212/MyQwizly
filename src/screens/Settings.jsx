@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { useStore, updateSettings, syncNow, signOut, releaseHeld } from '../lib/store'
 import { plural } from '../lib/day'
+import { confirmDialog } from '../components/Dialog'
 import { go } from '../lib/ui'
 import Icon from '../components/Icon'
 import { Segmented, Stepper, Switch, soft, toast } from '../components/ui'
@@ -16,18 +17,33 @@ export default function Settings() {
   const waiting = pending - held
 
   async function logout(asked) {
-    if (asked !== true && !confirm('Выйти из аккаунта? Данные останутся в облаке.')) return
+    if (asked !== true && !(await confirmDialog({ title: 'Выйти из аккаунта?', text: 'Все данные останутся в облаке — войдёшь снова, и всё будет на месте.', ok: 'Выйти', danger: true }))) return
+    if (user?.id === 'demo') return location.replace(location.pathname)
     try {
       await signOut()
     } catch (e) {
       if (e.message !== 'unsynced') throw e
       // Не даём потерять то, что ещё не в облаке
-      if (e.held && confirm(`${e.held} ${plural(e.held, 'запись хранится', 'записи хранятся', 'записей хранятся')} только на этом устройстве. Отправить в облако перед выходом?`)) {
+      if (e.held) {
+        const send = await confirmDialog({
+          title: 'Есть неотправленные карточки',
+          text: `${e.held} ${plural(e.held, 'запись хранится', 'записи хранятся', 'записей хранятся')} только на этом устройстве. Отправить в облако перед выходом?`,
+          ok: 'Отправить и выйти',
+          cancel: 'Остаться',
+        })
+        if (!send) return
         releaseHeld()
         await syncNow().catch(() => {})
         return logout(true)
       }
-      alert(`Не отправлено изменений: ${e.pending}. Подключись к интернету и подожди синхронизации — иначе они пропадут.`)
+      const force = await confirmDialog({
+        title: 'Не всё сохранено в облаке',
+        text: `Ещё не отправлено изменений: ${e.pending}. Проверь интернет и подожди пару секунд. Если выйти сейчас — эти изменения пропадут.`,
+        ok: 'Выйти всё равно',
+        cancel: 'Подождать',
+        danger: true,
+      })
+      if (force) await signOut({ force: true })
     }
   }
 

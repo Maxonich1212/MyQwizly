@@ -124,10 +124,10 @@ export function Calendar({ days, goalOf, frozen }) {
             const fr = frozen.has(k)
             const cls = ['d', k > today ? 'future' : '', lv ? `lvl${lv}` : '', fr && !lv ? 'frozen' : '', k === today ? 'today' : ''].join(' ')
             return (
-              <motion.div key={k} className={cls} title={days[k] ? `${days[k].n} карточек` : ''} initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: i * 0.008, type: 'spring', stiffness: 400, damping: 26 }}>
+              <div key={k} className={`${cls} pop-in`} title={days[k] ? `${days[k].n} карточек` : ''} style={{ animationDelay: `${i * 8}ms` }}>
                 {Number(k.slice(8))}
                 {fr && !lv && <span className="ico">❄</span>}
-              </motion.div>
+              </div>
             )
           })}
         </motion.div>

@@ -21,6 +21,7 @@ import Trash from './screens/Trash'
 import SyncAsk from './components/SyncAsk'
 import NewPassword from './components/NewPassword'
 import { ErrorBoundary, UpdateBanner } from './components/Safety'
+import { DialogHost } from './components/Dialog'
 
 // Привычки — главный экран (нужны каждый день), карточки — вторая вкладка
 const TABS = [
@@ -96,6 +97,7 @@ export default function App() {
         <Auth />
         <UpdateBanner />
         <NewPassword />
+        <DialogHost />
       </>
     )
 
@@ -104,18 +106,19 @@ export default function App() {
 
   return (
     <div className="app">
+      <div className="top-fade" aria-hidden="true" />
       <div className="ambient" aria-hidden="true">
         <i />
         <i />
         <i />
       </div>
       {/* Только анимация входа: новый экран «проявляется» из размытия, старый снимается сразу.
-          filter создаёт контейнер для position:fixed — после анимации снимаем его (transitionEnd) */}
+          Анимируем только transform и opacity — их считает видеокарта, переходы не лагают */}
       <motion.div
         key={path}
-        initial={{ opacity: 0, x: dir * 34, y: dir === 0 ? 10 : 0, scale: dir === 0 ? 0.985 : 1, filter: 'blur(8px)' }}
-        animate={{ opacity: 1, x: 0, y: 0, scale: 1, filter: 'blur(0px)', transitionEnd: { filter: 'none' } }}
-        transition={{ ...liquid, opacity: { duration: 0.25 }, filter: { duration: 0.3 } }}
+        initial={{ opacity: 0, x: dir * 28, y: dir === 0 ? 8 : 0 }}
+        animate={{ opacity: 1, x: 0, y: 0 }}
+        transition={{ type: 'spring', stiffness: 420, damping: 40, opacity: { duration: 0.18, ease: 'easeOut' } }}
       >
         <ErrorBoundary key={path}>{screenFor(parts)}</ErrorBoundary>
       </motion.div>
@@ -133,11 +136,11 @@ export default function App() {
               const on = active === t.path
               return (
                 <button key={t.path} className={on ? 'on' : ''} onClick={() => go(t.path)} aria-label={t.label}>
-                  {on && <motion.span layoutId="tabpill" className="pill" transition={liquid} />}
+                  {on && <motion.span layoutId="tabpill" className="pill" transition={{ type: 'spring', stiffness: 480, damping: 38 }} />}
                   <t.icon size={21} strokeWidth={on ? 2.3 : 2} />
                   <AnimatePresence initial={false}>
                     {on && (
-                      <motion.span className="label" initial={{ width: 0, opacity: 0 }} animate={{ width: 'auto', opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={liquid}>
+                      <motion.span className="label" initial={{ width: 0, opacity: 0 }} animate={{ width: 'auto', opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ type: 'spring', stiffness: 500, damping: 40 }}>
                         {t.label}
                       </motion.span>
                     )}
@@ -153,6 +156,7 @@ export default function App() {
       <SyncAsk />
       <NewPassword />
       <UpdateBanner />
+      <DialogHost />
     </div>
   )
 }

@@ -215,7 +215,8 @@ async function loadLocal() {
 // Выход стирает локальные данные, поэтому сначала всё должно уйти в облако.
 // force — только если пользователь явно согласился потерять неотправленное
 export async function signOut({ force = false } = {}) {
-  await syncNow().catch(() => {})
+  // Ждём синхронизацию не дольше 6 секунд — без сети кнопка не должна «зависать»
+  if (!force) await Promise.race([syncNow().catch(() => {}), new Promise((r) => setTimeout(r, 6000))])
   if (!force && (state.pending || state.held)) {
     const err = new Error('unsynced')
     err.pending = state.pending

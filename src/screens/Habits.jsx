@@ -9,6 +9,7 @@ import { useHabits, useHabitLogs, progressOf, isScheduled, tapHabit, habitStats,
 import { addDays, dayKey, parseKey, fmtDay, monthName, plural } from '../lib/day'
 import { go } from '../lib/ui'
 import HabitIcon from '../components/HabitIcon'
+import { promptDialog, confirmDialog } from '../components/Dialog'
 import { LiquidCheck, DotGrid, MonthDots, ContextMenu, Pills, useLongPress, liquid } from '../components/fluid'
 import { HabitEditor, ValueSheet } from '../components/HabitEditor'
 
@@ -57,8 +58,8 @@ export default function Habits() {
         {
           label: 'Заметка на сегодня',
           icon: <StickyNote size={20} />,
-          onClick: () => {
-            const n = prompt('Заметка', logs[h.id]?.[dayKey()]?.note || '')
+          onClick: async () => {
+            const n = await promptDialog({ title: 'Заметка на сегодня', value: logs[h.id]?.[dayKey()]?.note || '', placeholder: 'Как прошло?', ok: 'Сохранить' })
             if (n != null) setNote(h, dayKey(), n.trim())
           },
         },
@@ -75,7 +76,7 @@ export default function Habits() {
         },
         '-',
         { label: 'В архив', icon: <Archive size={20} />, onClick: () => patch('habits', h.id, { archived: true }) },
-        { label: 'Удалить', icon: <Trash2 size={20} />, danger: true, onClick: () => confirm(`Удалить «${h.name}» со всей историей?`) && remove('habits', h.id) },
+        { label: 'Удалить', icon: <Trash2 size={20} />, danger: true, onClick: async () => (await confirmDialog({ title: `Удалить «${h.name}»?`, text: 'Привычка попадёт в корзину — вернуть можно в Настройках.', ok: 'Удалить', danger: true })) && remove('habits', h.id) },
       ],
     })
   }
@@ -127,10 +128,10 @@ export default function Habits() {
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={view}
-              initial={{ opacity: 0, y: 14, filter: 'blur(8px)' }}
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, y: -8, filter: 'blur(8px)' }}
-              transition={liquid}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6, transition: { duration: 0.12 } }}
+              transition={{ type: 'spring', stiffness: 380, damping: 34 }}
             >
               {view === 'grid' && (
                 <div className="col" style={{ gap: 12 }}>
@@ -206,11 +207,10 @@ function HabitCard({ h, logs, i, onTap, onMenu }) {
   const countLabel = h.tracking !== 'check' && h.kind !== 'quit' ? `${log?.value || 0}/${targetOf(h)}` : null
   return (
     <motion.div
-      layout
-      initial={{ opacity: 0, y: 24, scale: 0.97 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9, filter: 'blur(6px)' }}
-      transition={{ ...liquid, delay: Math.min(i, 8) * 0.05 }}
+      initial={{ opacity: 0, y: 18 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 30, delay: Math.min(i, 6) * 0.04 }}
       className="tint-card habit-card"
       style={{ '--c': h.color }}
       onClick={() => !lp.fired() && go(`/h/${h.id}`)}
@@ -283,7 +283,7 @@ function WeekView({ list, logs, onTap, onMenu }) {
 function WeekRow({ h, logs, days, onTap, onMenu }) {
   const lp = useLongPress((at) => onMenu(h, at))
   return (
-    <motion.div layout className="week-row" style={{ '--c': h.color }} transition={liquid}>
+    <div className="week-row" style={{ '--c': h.color }}>
       <button className="name" onClick={() => !lp.fired() && go(`/h/${h.id}`)} {...lp.handlers}>
         <div className="ico-sq sm">
           <HabitIcon name={h.icon} size={16} />
@@ -306,7 +306,7 @@ function WeekRow({ h, logs, days, onTap, onMenu }) {
           </motion.button>
         )
       })}
-    </motion.div>
+    </div>
   )
 }
 
@@ -342,7 +342,7 @@ function MonthTile({ h, logs, month, onMenu }) {
   const lp = useLongPress((at) => onMenu(h, at))
   const p = progressOf(h, logs[dayKey()])
   return (
-    <motion.div layout className="tint-card tile" style={{ '--c': h.color }} onClick={() => !lp.fired() && go(`/h/${h.id}`)} {...lp.handlers} whileTap={{ scale: 0.97 }} transition={liquid}>
+    <motion.div className="tint-card tile" style={{ '--c': h.color }} onClick={() => !lp.fired() && go(`/h/${h.id}`)} {...lp.handlers} whileTap={{ scale: 0.97 }} transition={liquid}>
       <div className="t-head">
         <LiquidCheck round size={28} progress={p} color={h.color} onTap={() => tapHabit(h)} />
         <span>{h.name}</span>

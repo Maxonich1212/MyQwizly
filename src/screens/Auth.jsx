@@ -239,9 +239,9 @@ function LivingGrid() {
     const out = []
     let seed = 11
     const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
-    for (let y = 0; y < 40; y++)
-      for (let x = 0; x < 22; x++) {
-        const lit = rnd() < 0.42
+    for (let y = 0; y < 30; y++)
+      for (let x = 0; x < 16; x++) {
+        const lit = rnd() < 0.36
         out.push({ k: `${x}-${y}`, lit, c: COLORS[(x + Math.floor(y / 3)) % COLORS.length], d: (x + y) * 0.07 + rnd() * 0.4 })
       }
     return out

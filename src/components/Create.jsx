@@ -172,7 +172,7 @@ export function CreateSheet({ open, onClose: close, deckId: fixedDeck, onNewSect
           </div>
 
           <AnimatePresence mode="wait" initial={false}>
-            <motion.div key={mode + (deck?.id || '')} initial={{ opacity: 0, y: 10, filter: 'blur(6px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} exit={{ opacity: 0, y: -6, filter: 'blur(6px)' }} transition={liquid}>
+            <motion.div key={mode + (deck?.id || '')} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6, transition: { duration: 0.1 } }} transition={{ type: 'spring', stiffness: 400, damping: 34 }}>
               {mode === 'file' ? (
                 <div className="drop card" style={{ cursor: 'pointer' }} onClick={() => go(sectionId ? `/import/${sectionId}` : '/import')}>
                   <Upload size={30} style={{ color: 'var(--accent)' }} />
