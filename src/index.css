@@ -3176,3 +3176,100 @@ html {
   transition-delay: 90ms;
   transition-duration: 0.18s;
 }
+
+/* ═══ Плитки календаря (главный вид привычек) ═══ */
+.tiles {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.tile {
+  padding: 10px 9px 10px 10px;
+  border-radius: 20px;
+  transition: border-color 0.35s, box-shadow 0.35s;
+}
+
+.tile::before {
+  transition: opacity 0.35s;
+}
+
+.tile-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 32px;
+  margin-bottom: 9px;
+}
+
+.tile-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.005em;
+  color: var(--text-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  hyphens: auto;
+  overflow-wrap: anywhere;
+  transition: color 0.3s;
+}
+
+.tile-name svg {
+  display: inline-block;
+  vertical-align: -1.5px;
+  margin-right: 4px;
+  color: var(--c);
+}
+
+.tile .liquid {
+  margin-top: 1px;
+}
+
+/* Выполнено сегодня: рамка и мягкое свечение цветом привычки */
+.tile.done {
+  border-color: color-mix(in srgb, var(--c) 55%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 25%, transparent), 0 12px 30px -14px var(--c);
+}
+
+.tile.done::before {
+  background: radial-gradient(130% 100% at 100% 0%, color-mix(in srgb, var(--c) 30%, transparent), transparent 60%),
+    linear-gradient(180deg, color-mix(in srgb, var(--c) 12%, transparent), transparent 75%);
+}
+
+.tile.done .tile-name {
+  color: var(--text);
+}
+
+.month-dots {
+  gap: 3px;
+}
+
+.month-dots i.out {
+  opacity: 0.35;
+}
+
+.month-dots i.future {
+  opacity: 0.55;
+}
+
+@media (min-width: 560px) {
+  .tile-name {
+    font-size: 13.5px;
+  }
+}
+
+/* Название плитки — целыми словами, без переносов по слогам */
+.tile {
+  padding: 10px 8px 10px 10px;
+}
+
+.tile-name {
+  font-size: 12.5px;
+  hyphens: manual;
+  overflow-wrap: normal;
+  word-break: normal;
+}

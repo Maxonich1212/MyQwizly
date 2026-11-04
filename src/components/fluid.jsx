@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { createPortal } from 'react-dom'
 import { Check } from 'lucide-react'
-import { addDays, dayKey, parseKey, weekStart } from '../lib/day'
+import { addDays, dayKey, parseKey, weekStart, toKey } from '../lib/day'
 
 // «Водяная» пружина: мягкая, с небольшим перекатом — элементы перетекают, а не щёлкают
 export const liquid = { type: 'spring', stiffness: 170, damping: 21, mass: 1 }
@@ -278,20 +278,26 @@ export function DotGrid({ level, color, dot = 7.5, gap = 3, minWeeks = 8, maxWee
   )
 }
 
-// Мини-календарь месяца точками
+// Мини-календарь месяца точками. Сетка — полные недели (Пн…Вс), без пустых дыр в начале:
+// дни соседних месяцев рисуются еле заметными клетками, поэтому сетка всегда ровная
 export function MonthDots({ level, color, month = new Date() }) {
   const y = month.getFullYear()
   const m = month.getMonth()
-  const first = new Date(y, m, 1, 12)
-  const lead = (first.getDay() + 6) % 7
-  const n = new Date(y, m + 1, 0).getDate()
+  const first = toKey(new Date(y, m, 1, 12))
+  const last = toKey(new Date(y, m + 1, 0, 12))
+  const start = weekStart(first)
+  const end = addDays(weekStart(last), 6)
   const today = dayKey()
   const out = []
-  for (let i = 0; i < lead; i++) out.push(<i key={`p${i}`} className="lead" />)
-  for (let d = 1; d <= n; d++) {
-    const k = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+  for (let k = start; k <= end; k = addDays(k, 1)) {
+    const inMonth = k >= first && k <= last
+    if (!inMonth) {
+      out.push(<i key={k} className="out" />)
+      continue
+    }
     const l = k > today ? 0 : level(k)
-    out.push(<i key={k} className={k === today ? (l > 0 ? 'today' : 'today-empty') : undefined} style={l > 0 ? { background: color, opacity: 0.4 + 0.6 * l, '--c': color } : { opacity: k > today ? 0.45 : 1, '--c': color }} />)
+    const cls = k === today ? (l > 0 ? 'today' : 'today-empty') : k > today ? 'future' : undefined
+    out.push(<i key={k} className={cls} style={l > 0 ? { background: color, opacity: 0.4 + 0.6 * l, '--c': color } : { '--c': color }} />)
   }
   return <div className="month-dots">{out}</div>
 }

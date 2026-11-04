@@ -10,10 +10,11 @@ import { promptDialog, confirmDialog } from '../components/Dialog'
 import { LiquidCheck, DotGrid, MonthDots, ContextMenu, Pills, useLongPress, liquid } from '../components/fluid'
 import { HabitEditor, ValueSheet } from '../components/HabitEditor'
 
+// Календарь плитками — главный вид: все привычки помещаются на экран без прокрутки
 const VIEWS = [
+  { value: 'month', icon: CalendarDays },
   { value: 'grid', icon: LayoutGrid },
   { value: 'week', icon: ListChecks },
-  { value: 'month', icon: CalendarDays },
 ]
 
 const TEMPLATES = [
@@ -28,7 +29,7 @@ const TEMPLATES = [
 export default function Habits() {
   const habits = useHabits()
   const logs = useHabitLogs()
-  const [view, setView] = useState(() => localStorage.getItem('mq-hview') || 'grid')
+  const [view, setView] = useState(() => localStorage.getItem('mq-hview2') || 'month')
   const [cat, setCat] = useState('all')
   const [editor, setEditor] = useState(null) // null | {} (новая) | habit | шаблон
   const [menu, setMenu] = useState(null)
@@ -41,7 +42,7 @@ export default function Habits() {
 
   const changeView = (v) => {
     setView(v)
-    localStorage.setItem('mq-hview', v)
+    localStorage.setItem('mq-hview2', v)
   }
 
   const tap = (h, day) => (h.tracking === 'measure' && h.kind !== 'quit' ? setValueFor({ h, day }) : tapHabit(h, day))
@@ -266,7 +267,7 @@ function WeekRow({ h, logs, days, onTap, onMenu }) {
   )
 }
 
-function MonthView({ list, logs, onMenu }) {
+function MonthView({ list, logs, onTap, onMenu }) {
   const [offset, setOffset] = useState(0)
   const base = parseKey(dayKey())
   const month = new Date(base.getFullYear(), base.getMonth() + offset, 1, 12)
@@ -286,7 +287,7 @@ function MonthView({ list, logs, onMenu }) {
       <AnimatePresence mode="wait" initial={false}>
         <motion.div key={offset} className="tiles" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={liquid}>
           {list.map((h) => (
-            <MonthTile key={h.id} h={h} logs={logs[h.id] || {}} month={month} onMenu={onMenu} />
+            <MonthTile key={h.id} h={h} logs={logs[h.id] || {}} month={month} onTap={onTap} onMenu={onMenu} />
           ))}
         </motion.div>
       </AnimatePresence>
@@ -294,14 +295,26 @@ function MonthView({ list, logs, onMenu }) {
   )
 }
 
-function MonthTile({ h, logs, month, onMenu }) {
+// Плитка календаря: название слева, отметка справа, выполненная — подсвечивается цветом привычки
+function MonthTile({ h, logs, month, onTap, onMenu }) {
   const lp = useLongPress((at) => onMenu(h, at))
-  const p = progressOf(h, logs[dayKey()])
+  const today = dayKey()
+  const p = progressOf(h, logs[today])
+  const done = p >= 1 && isScheduled(h, today)
+  const countLabel = h.tracking !== 'check' && h.kind !== 'quit' && p < 1 ? `${logs[today]?.value || 0}` : null
   return (
-    <motion.div className="tint-card tile press" style={{ '--c': h.color }} onClick={() => !lp.fired() && go(`/h/${h.id}`)} {...lp.handlers}>
-      <div className="t-head">
-        <LiquidCheck round size={28} progress={p} color={h.color} onTap={() => tapHabit(h)} />
-        <span>{h.name}</span>
+    <motion.div
+      className={`tint-card tile press ${done ? 'done' : ''}`}
+      style={{ '--c': h.color }}
+      onClick={() => !lp.fired() && go(`/h/${h.id}`)}
+      {...lp.handlers}
+      initial={false}
+      animate={done ? { scale: [1, 1.035, 1] } : { scale: 1 }}
+      transition={{ duration: 0.45, ease: 'easeOut' }}
+    >
+      <div className="tile-head">
+        <div className="tile-name">{h.name}</div>
+        <LiquidCheck round size={24} progress={p} color={h.color} label={countLabel} onTap={() => onTap(h, today)} onLongPress={(at) => onMenu(h, at)} />
       </div>
       <MonthDots month={month} color={h.color} level={(d) => (d < createdDay(h) || !isScheduled(h, d) ? 0 : progressOf(h, logs[d]))} />
     </motion.div>
