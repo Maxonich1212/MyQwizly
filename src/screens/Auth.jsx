@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Layers, Mail, Lock, ArrowRight, Flame, Check, Sparkles } from 'lucide-react'
+import { Mail, Lock, ArrowRight, Flame, Check, Sparkles } from 'lucide-react'
+import Logo from '../components/Logo'
 import { sb } from '../lib/supabase'
 import { Segmented } from '../components/ui'
 import { liquid, liquidSoft } from '../components/fluid'
@@ -167,7 +168,9 @@ function Hero() {
             </defs>
             <motion.path d={BLOBS[0]} animate={{ d: BLOBS[blob] }} transition={{ duration: 1.8, ease: 'easeInOut' }} fill="url(#lg)" />
           </svg>
-          <Layers size={40} color="#fff" strokeWidth={2.2} style={{ position: 'absolute' }} />
+          <span style={{ position: 'absolute', display: 'grid' }}>
+            <Logo size={52} dim={0.2} />
+          </span>
         </motion.div>
 
         <motion.div
