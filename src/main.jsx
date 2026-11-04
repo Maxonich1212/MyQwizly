@@ -13,7 +13,10 @@ try {
   applyTheme('system')
 }
 
-boot()
+window.__bootSet?.(45)
+// ?slowboot — только в разработке: задержка, чтобы рассмотреть заставку
+const slow = import.meta.env.DEV && new URLSearchParams(location.search).has('slowboot')
+;(slow ? new Promise((r) => setTimeout(r, 3000)) : Promise.resolve()).then(() => boot().then(() => window.__bootSet?.(85)))
 requestPersistentStorage()
 
 createRoot(document.getElementById('root')).render(

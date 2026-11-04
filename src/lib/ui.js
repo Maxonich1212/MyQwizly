@@ -29,7 +29,7 @@ export const back = (fallback = '/') => {
 export function applyTheme(pref) {
   const dark = pref === 'dark' || (pref === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
   document.documentElement.dataset.theme = dark ? 'dark' : 'light'
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#17191f' : '#f4f5f8')
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#141519' : '#f2f3f6')
 }
 
 export function useMediaQuery(q) {

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#f4f5f8" />
+    <meta name="theme-color" content="#141519" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -13,22 +13,51 @@
     <link rel="apple-touch-icon" href="./icon-180.png" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <title>My Habit Quizly</title>
+    <script>
+      // Тема и цвет статус-бара — до первой отрисовки, иначе сверху мелькает светлая полоса
+      ;(function () {
+        var pref = 'system'
+        try { pref = JSON.parse(localStorage.getItem('mq-theme') || '"system"') } catch (e) {}
+        var dark = pref === 'dark' || (pref === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
+        var bg = dark ? '#141519' : '#f2f3f6'
+        var d = document.documentElement
+        d.dataset.theme = dark ? 'dark' : 'light'
+        d.style.setProperty('--boot-bg', bg)
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', bg)
+        // Полоса загрузки: этапы задают реальный прогресс, а между ними она плавно «ползёт» вперёд
+        var p = 8
+        window.__bootSet = function (v) { p = Math.max(p, v); d.style.setProperty('--boot-p', p + '%') }
+        window.__bootSet(12)
+        window.__bootTimer = setInterval(function () { if (p < 88) window.__bootSet(p + (88 - p) * 0.08) }, 120)
+      })()
+    </script>
     <style>
       /* Заглушка до загрузки скриптов — совпадает с компонентом Splash */
-      :root { --boot-bg: #f2f3f6; }
-      @media (prefers-color-scheme: dark) { :root { --boot-bg: #141519; } }
-      html, body { margin: 0; background: var(--bg, var(--boot-bg)); }
-      .splash { position: fixed; inset: 0; z-index: 500; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; background: var(--bg, var(--boot-bg)); }
-      .splash-logo { width: 96px; height: 96px; border-radius: 28%; display: grid; place-items: center;
-        background: linear-gradient(135deg, #43464f, #25272d 55%, #121317); box-shadow: 0 18px 40px -14px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.08); }
+      html, body { margin: 0; background: var(--bg, var(--boot-bg, #141519)); }
+      .splash { position: fixed; inset: 0; z-index: 500; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--bg, var(--boot-bg, #141519)); }
+      .splash-glow { position: absolute; width: 260px; height: 260px; border-radius: 50%; background: radial-gradient(circle, rgba(140, 142, 160, 0.22), transparent 65%); animation: splashGlow 2.4s ease-in-out infinite; }
+      .splash-logo { position: relative; width: 96px; height: 96px; border-radius: 28%; display: grid; place-items: center;
+        background: linear-gradient(135deg, #43464f, #25272d 55%, #121317); box-shadow: 0 18px 40px -14px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+        animation: splashIn 0.7s cubic-bezier(0.34, 1.4, 0.64, 1) both; }
+      .splash-name { position: relative; margin-top: 22px; font: 600 11px/1 ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(140, 142, 156, 0.9); animation: splashFade 0.6s 0.25s ease-out both; }
+      .splash-bar { position: relative; margin-top: 16px; width: 132px; height: 4px; border-radius: 9px; overflow: hidden; background: rgba(127, 127, 140, 0.18); animation: splashFade 0.6s 0.35s ease-out both; }
+      .splash-bar i { position: absolute; left: 0; top: 0; bottom: 0; width: var(--boot-p, 8%); border-radius: 9px; background: linear-gradient(90deg, #7c7eff, #a78bfa, #e9e9f2); transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+      .splash-bar i::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent); animation: splashShine 1.2s linear infinite; }
       .logo-lit { opacity: 0.55; animation: logoLit 1.6s ease-in-out infinite; }
       @keyframes logoLit { 0%, 100% { opacity: 0.55; } 35%, 60% { opacity: 1; } }
+      @keyframes splashIn { from { opacity: 0; transform: scale(0.7) translateY(10px); } }
+      @keyframes splashFade { from { opacity: 0; transform: translateY(6px); } }
+      @keyframes splashGlow { 0%, 100% { transform: scale(0.9); opacity: 0.7; } 50% { transform: scale(1.1); opacity: 1; } }
+      @keyframes splashShine { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
     </style>
   </head>
   <body>
     <div id="root">
       <div class="splash">
+        <div class="splash-glow"></div>
         <div class="splash-logo"><svg width="56" height="56" viewBox="0 0 100 100"><rect x="1.71" y="1.71" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="16.00" y="1.71" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="30.29" y="1.71" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="44.57" y="1.71" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="58.86" y="1.71" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="73.14" y="1.71" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="87.43" y="1.71" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="1.71" y="16.00" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="16.00" y="16.00" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="30.29" y="16.00" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="44.57" y="16.00" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="58.86" y="16.00" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="73.14" y="16.00" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect class="logo-lit" style="animation-delay:0.66s" x="87.43" y="16.00" width="10.86" height="10.86" rx="3.26" fill="#fff"/><rect x="1.71" y="30.29" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="16.00" y="30.29" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="30.29" y="30.29" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="44.57" y="30.29" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="58.86" y="30.29" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect class="logo-lit" style="animation-delay:0.55s" x="73.14" y="30.29" width="10.86" height="10.86" rx="3.26" fill="#fff"/><rect x="87.43" y="30.29" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect class="logo-lit" style="animation-delay:0.00s" x="1.71" y="44.57" width="10.86" height="10.86" rx="3.26" fill="#fff"/><rect x="16.00" y="44.57" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="30.29" y="44.57" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="44.57" y="44.57" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect class="logo-lit" style="animation-delay:0.44s" x="58.86" y="44.57" width="10.86" height="10.86" rx="3.26" fill="#fff"/><rect x="73.14" y="44.57" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="87.43" y="44.57" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="1.71" y="58.86" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect class="logo-lit" style="animation-delay:0.11s" x="16.00" y="58.86" width="10.86" height="10.86" rx="3.26" fill="#fff"/><rect x="30.29" y="58.86" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect class="logo-lit" style="animation-delay:0.33s" x="44.57" y="58.86" width="10.86" height="10.86" rx="3.26" fill="#fff"/><rect x="58.86" y="58.86" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="73.14" y="58.86" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="87.43" y="58.86" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="1.71" y="73.14" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="16.00" y="73.14" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect class="logo-lit" style="animation-delay:0.22s" x="30.29" y="73.14" width="10.86" height="10.86" rx="3.26" fill="#fff"/><rect x="44.57" y="73.14" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="58.86" y="73.14" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="73.14" y="73.14" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="87.43" y="73.14" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="1.71" y="87.43" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="16.00" y="87.43" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="30.29" y="87.43" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="44.57" y="87.43" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="58.86" y="87.43" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="73.14" y="87.43" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/><rect x="87.43" y="87.43" width="10.86" height="10.86" rx="3.26" fill="#fff" opacity="0.14"/></svg></div>
+        <div class="splash-name">My Habit Quizly</div>
+        <div class="splash-bar"><i></i></div>
       </div>
     </div>
     <script type="module" src="/src/main.jsx"></script>

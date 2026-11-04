@@ -93,7 +93,10 @@ export default function App() {
   const bootAt = useRef(performance.now())
   useEffect(() => {
     if (!ready) return
-    const t = setTimeout(() => setShowSplash(false), Math.max(0, 900 - (performance.now() - bootAt.current)))
+    // Добиваем полосу до 100% и даём увидеть заполнение, потом растворяем заставку
+    clearInterval(window.__bootTimer)
+    window.__bootSet?.(100)
+    const t = setTimeout(() => setShowSplash(false), Math.max(550, 1100 - (performance.now() - bootAt.current)))
     return () => clearTimeout(t)
   }, [ready])
 
