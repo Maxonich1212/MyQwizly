@@ -88,8 +88,14 @@ export default function App() {
   if (!user)
     return (
       <>
+        <div className="ambient" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+        </div>
         <Auth />
         <UpdateBanner />
+        <NewPassword />
       </>
     )
 
