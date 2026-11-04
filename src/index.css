@@ -3144,3 +3144,20 @@ body,
 .head .round {
   margin-bottom: 2px;
 }
+
+/* Галочка в кнопке-отметке строго по центру: svg без «хвоста» строки под собой */
+.liquid .mark,
+.liquid .count {
+  position: relative;
+  display: grid;
+  place-items: center;
+  line-height: 0;
+}
+
+.liquid .count {
+  line-height: 1;
+}
+
+.liquid .mark svg {
+  display: block;
+}
