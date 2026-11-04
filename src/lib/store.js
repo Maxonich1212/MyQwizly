@@ -27,11 +27,14 @@ let state = {
   decks: {},
   notes: {},
   reviews: {},
+  habits: {},
+  habit_logs: {},
   settings: DEFAULT_SETTINGS,
   sync: { status: 'idle', at: null, error: null },
 }
 const listeners = new Set()
-let dirty = { sections: new Set(), decks: new Set(), notes: new Set(), reviews: new Set(), settings: false }
+const emptyDirty = () => ({ ...Object.fromEntries(TABLES.map((t) => [t, new Set()])), settings: false })
+let dirty = emptyDirty()
 let pullCursor = {}
 let settingsUpdatedAt = 0
 let syncTimer = null
@@ -169,9 +172,9 @@ export async function signOut() {
   await syncNow().catch(() => {})
   await sb.auth.signOut()
   await idb.clearAll()
-  dirty = { sections: new Set(), decks: new Set(), notes: new Set(), reviews: new Set(), settings: false }
+  dirty = emptyDirty()
   pullCursor = {}
-  emit({ sections: {}, decks: {}, notes: {}, reviews: {}, settings: DEFAULT_SETTINGS, user: null })
+  emit({ ...Object.fromEntries(TABLES.map((t) => [t, {}])), settings: DEFAULT_SETTINGS, user: null })
 }
 
 // ——— Синхронизация ———

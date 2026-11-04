@@ -1,11 +1,14 @@
 import { useEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { CalendarCheck, Layers, ChartNoAxesColumn, Settings as SettingsIcon } from 'lucide-react'
 import { useStore } from './lib/store'
 import { applyTheme, useRoute, go } from './lib/ui'
 import { uploadPending } from './lib/media'
-import Icon from './components/Icon'
-import { ToastHost, spring } from './components/ui'
+import { ToastHost } from './components/ui'
+import { liquid } from './components/fluid'
 import Auth from './screens/Auth'
+import Habits from './screens/Habits'
+import HabitDetail from './screens/HabitDetail'
 import Home from './screens/Home'
 import Section from './screens/Section'
 import Deck from './screens/Deck'
@@ -13,30 +16,38 @@ import Study from './screens/Study'
 import Stats from './screens/Stats'
 import Settings from './screens/Settings'
 import Import from './screens/Import'
+import Achievements, { AchievementWatcher } from './screens/Achievements'
 
+// Привычки — главный экран (нужны каждый день), карточки — вторая вкладка
 const TABS = [
-  { path: '/', icon: 'home', label: 'Главная' },
-  { path: '/stats', icon: 'chart', label: 'Статистика' },
-  { path: '/settings', icon: 'settings', label: 'Настройки' },
+  { path: '/', icon: CalendarCheck, label: 'Привычки' },
+  { path: '/cards', icon: Layers, label: 'Карточки' },
+  { path: '/stats', icon: ChartNoAxesColumn, label: 'Статистика' },
+  { path: '/settings', icon: SettingsIcon, label: 'Настройки' },
 ]
+const ROOTS = ['', 'cards', 'stats', 'settings']
 
-// Глубина экрана задаёт направление анимации перехода (вглубь — справа, назад — слева)
+// Глубина экрана задаёт направление перехода (вглубь — справа, назад — слева)
 function depthOf(parts) {
-  if (!parts.length || parts[0] === 'stats' || parts[0] === 'settings') return 0
-  if (parts[0] === 's' || parts[0] === 'import') return 1
-  if (parts[0] === 'd') return 2
+  const a = parts[0] || ''
+  if (ROOTS.includes(a)) return 0
+  if (['s', 'import', 'h', 'achievements'].includes(a)) return 1
+  if (a === 'd') return 2
   return 3
 }
 
 function screenFor(parts) {
   const [a, b] = parts
+  if (a === 'cards') return <Home />
+  if (a === 'h') return <HabitDetail id={b} />
   if (a === 's') return <Section id={b} />
   if (a === 'd') return <Deck id={b} />
   if (a === 'study') return <Study scope={b || 'all'} />
   if (a === 'stats') return <Stats />
   if (a === 'settings') return <Settings />
   if (a === 'import') return <Import sectionId={b} />
-  return <Home />
+  if (a === 'achievements') return <Achievements />
+  return <Habits />
 }
 
 export default function App() {
@@ -45,11 +56,10 @@ export default function App() {
   const theme = useStore((s) => s.settings.theme)
   const { path, parts } = useRoute()
   const depth = depthOf(parts)
-  const prevDepth = useRef(depth)
-  const dir = depth > prevDepth.current ? 1 : depth < prevDepth.current ? -1 : 0
-  useEffect(() => {
-    prevDepth.current = depth
-  }, [depth])
+  const prev = useRef({ path, depth })
+  // Направление считаем только при смене экрана, а не при каждом рендере
+  if (prev.current.path !== path) prev.current = { path, depth, dir: Math.sign(depth - prev.current.depth) }
+  const dir = prev.current.dir || 0
 
   useEffect(() => {
     applyTheme(theme)
@@ -73,44 +83,44 @@ export default function App() {
   if (!user) return <Auth />
 
   const tabRoot = depth === 0
-  const studying = parts[0] === 'study'
+  const active = `/${parts[0] || ''}`
 
   return (
     <div className="app">
-      {/* Только анимация входа: старый экран снимается сразу — без зависших «призраков» при быстрых переходах */}
+      <div className="ambient" aria-hidden="true">
+        <i />
+        <i />
+        <i />
+      </div>
+      {/* Только анимация входа: новый экран «проявляется» из размытия, старый снимается сразу.
+          filter создаёт контейнер для position:fixed — после анимации снимаем его (transitionEnd) */}
       <motion.div
         key={path}
-        initial={{ opacity: 0, x: dir * 36, scale: dir === 0 ? 0.985 : 1 }}
-        animate={{ opacity: 1, x: 0, scale: 1 }}
-        transition={{ type: 'spring', stiffness: 380, damping: 36, opacity: { duration: 0.22 } }}
+        initial={{ opacity: 0, x: dir * 34, y: dir === 0 ? 10 : 0, scale: dir === 0 ? 0.985 : 1, filter: 'blur(8px)' }}
+        animate={{ opacity: 1, x: 0, y: 0, scale: 1, filter: 'blur(0px)', transitionEnd: { filter: 'none' } }}
+        transition={{ ...liquid, opacity: { duration: 0.25 }, filter: { duration: 0.3 } }}
       >
         {screenFor(parts)}
       </motion.div>
 
       <AnimatePresence>
-        {tabRoot && !studying && (
+        {tabRoot && (
           <motion.nav
             className="tabbar"
             initial={{ y: 90, x: '-50%', opacity: 0 }}
             animate={{ y: 0, x: '-50%', opacity: 1 }}
             exit={{ y: 90, x: '-50%', opacity: 0 }}
-            transition={spring}
+            transition={liquid}
           >
             {TABS.map((t) => {
-              const on = (t.path === '/' && !parts.length) || `/${parts[0]}` === t.path
+              const on = active === t.path
               return (
                 <button key={t.path} className={on ? 'on' : ''} onClick={() => go(t.path)} aria-label={t.label}>
-                  {on && <motion.span layoutId="tabpill" className="pill" transition={spring} />}
-                  <Icon name={t.icon} size={21} />
+                  {on && <motion.span layoutId="tabpill" className="pill" transition={liquid} />}
+                  <t.icon size={21} strokeWidth={on ? 2.3 : 2} />
                   <AnimatePresence initial={false}>
                     {on && (
-                      <motion.span
-                        className="label"
-                        initial={{ width: 0, opacity: 0 }}
-                        animate={{ width: 'auto', opacity: 1 }}
-                        exit={{ width: 0, opacity: 0 }}
-                        transition={spring}
-                      >
+                      <motion.span className="label" initial={{ width: 0, opacity: 0 }} animate={{ width: 'auto', opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={liquid}>
                         {t.label}
                       </motion.span>
                     )}
@@ -122,6 +132,7 @@ export default function App() {
         )}
       </AnimatePresence>
       <ToastHost />
+      <AchievementWatcher />
     </div>
   )
 }

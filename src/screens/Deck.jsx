@@ -9,6 +9,7 @@ import { plain } from '../lib/render'
 import Icon from '../components/Icon'
 import { TopBar, Segmented } from '../components/ui'
 import { DeckEditor, NoteEditor } from '../components/Editors'
+import { CreateSheet } from '../components/Create'
 import { Composition, Missing } from './Section'
 
 const STATUS = {
@@ -25,7 +26,8 @@ export default function Deck({ id }) {
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState('all')
   const [editDeck, setEditDeck] = useState(false)
-  const [editing, setEditing] = useState(null) // null | 'new' | note
+  const [editing, setEditing] = useState(null) // null | note
+  const [create, setCreate] = useState(false)
   const [limit, setLimit] = useState(60)
   const due = useDue({ deckId: id })
   const comp = useComposition([id])
@@ -57,7 +59,9 @@ export default function Deck({ id }) {
         <button className="btn primary" style={{ flex: 1, background: section ? gradient(section.color) : undefined }} disabled={!due.total} onClick={() => go(`/study/d:${id}`)}>
           <Icon name="play" size={15} /> {due.total ? `Учить · ${due.total}` : 'На сегодня всё'}
         </button>
-        <span className="chip">{deck.kind === 'vocab' ? '🔤 EN ⇄ RU' : '💬 Вопрос-ответ'}</span>
+        <button className="btn secondary" disabled={!comp.total} onClick={() => go(`/study/cram:d:${id}`)} title="Прогон всех карточек без влияния на расписание">
+          <Icon name="bolt" size={17} /> Прогон
+        </button>
       </div>
 
       <Composition comp={comp} />
@@ -86,7 +90,7 @@ export default function Deck({ id }) {
           <div className="big">{comp.total ? '🔍' : '✨'}</div>
           <h3>{comp.total ? 'Ничего не найдено' : 'Колода пуста'}</h3>
           {!comp.total && (
-            <button className="btn primary" style={{ marginTop: 10 }} onClick={() => setEditing('new')}>
+            <button className="btn primary" style={{ marginTop: 10 }} onClick={() => setCreate(true)}>
               <Icon name="plus" size={18} /> Добавить карточку
             </button>
           )}
@@ -121,12 +125,13 @@ export default function Deck({ id }) {
         </div>
       )}
 
-      <motion.button className="fab low" whileTap={{ scale: 0.9 }} onClick={() => setEditing('new')} aria-label="Новая карточка" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 20, delay: 0.2 }}>
+      <motion.button className="fab low" whileTap={{ scale: 0.9 }} onClick={() => setCreate(true)} aria-label="Новая карточка" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 20, delay: 0.2 }}>
         <Icon name="plus" size={26} stroke={2.4} />
       </motion.button>
 
       <DeckEditor open={editDeck} onClose={() => setEditDeck(false)} deck={deck} sectionId={deck.section_id} />
-      <NoteEditor open={!!editing} onClose={() => setEditing(null)} deck={deck} note={editing === 'new' ? null : editing} />
+      <NoteEditor open={!!editing} onClose={() => setEditing(null)} deck={deck} note={editing} />
+      <CreateSheet open={create} onClose={() => setCreate(false)} deckId={id} />
     </div>
   )
 }

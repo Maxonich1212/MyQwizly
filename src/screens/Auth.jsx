@@ -44,9 +44,9 @@ export default function Auth() {
         <motion.div className="logo" initial={{ scale: 0.6, rotate: -12 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 260, damping: 16, delay: 0.1 }}>
           <Icon name="layers" size={36} />
         </motion.div>
-        <h1 className="title">MyQwizly</h1>
+        <h1 className="title">My Habit Quizly</h1>
         <p className="subtitle" style={{ marginBottom: 28 }}>
-          Карточки для собеседований и английского. Учись каждый день — прогресс сохранится на всех устройствах.
+          Привычки и карточки для собеседований и английского. Всё синхронизируется между телефоном и компьютером.
         </p>
         <div style={{ marginBottom: 18 }}>
           <Segmented

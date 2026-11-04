@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion, useMotionValue, useTransform } from 'framer-motion'
 import { getState, patch, upsert, uid, useStore } from '../lib/store'
-import { buildQueue, LEARN_AHEAD_MS } from '../lib/queue'
+import { buildQueue, scopeDecks, LEARN_AHEAD_MS } from '../lib/queue'
 import { gradeNote, previewIntervals, fmtInterval, Rating } from '../lib/srs'
 import { checkVocab, keywordCoverage, stripHtml } from '../lib/check'
 import { renderContent } from '../lib/render'
@@ -28,7 +28,11 @@ const RATINGS = [
   { r: Rating.Easy, label: 'Легко', key: '4' },
 ]
 
-export default function Study({ scope: scopeStr }) {
+export default function Study({ scope }) {
+  return scope.startsWith('cram:') ? <Cram scope={parseScope(scope.slice(5))} /> : <Learn scope={scope} />
+}
+
+function Learn({ scope: scopeStr }) {
   const scope = useMemo(() => parseScope(scopeStr), [scopeStr])
   const settings = useStore((s) => s.settings)
   const notes = useStore((s) => s.notes)
@@ -567,5 +571,170 @@ function Celebrate({ streak, onClose }) {
         </motion.div>
       </div>
     </motion.div>
+  )
+}
+
+// Прогон перед собеседованием: все карточки вперемешку, «знаю / не знаю», расписание FSRS не трогаем
+function Cram({ scope }) {
+  const notes = useStore((s) => s.notes)
+  const decks = useStore((s) => s.decks)
+  const sections = useStore((s) => s.sections)
+  const [state] = useState(() => {
+    const st = getState()
+    const ds = scopeDecks(st.decks, scope)
+    const items = []
+    for (const n of Object.values(st.notes)) {
+      const d = ds.find((x) => x.id === n.deck_id)
+      if (!d || n.deleted || n.suspended) continue
+      items.push({ note: n.id, dir: d.kind === 'vocab' && Math.random() < 0.5 ? 'rev' : 'fwd', tries: 0 })
+    }
+    for (let i = items.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[items[i], items[j]] = [items[j], items[i]]
+    }
+    return { queue: items, total: items.length, missed: new Set() }
+  })
+  const [current, setCurrent] = useState(() => state.queue[0] || null)
+  const [revealed, setRevealed] = useState(false)
+  const [exitKind, setExitKind] = useState({ type: 'next', rating: 3 })
+  const [known, setKnown] = useState(0)
+
+  const answer = useCallback(
+    (ok) => {
+      state.queue.shift()
+      if (ok) setKnown((k) => k + 1)
+      else {
+        state.missed.add(current.note)
+        // Не знаю — вернётся ближе к концу, но не больше двух раз
+        if (current.tries < 2) state.queue.splice(Math.min(state.queue.length, 4 + Math.floor(Math.random() * 4)), 0, { ...current, tries: current.tries + 1 })
+      }
+      haptic(ok ? 10 : [10, 40, 10])
+      setExitKind({ type: 'next', rating: ok ? 3 : 1 })
+      setRevealed(false)
+      setCurrent(state.queue[0] || null)
+    },
+    [current, state],
+  )
+
+  useEffect(() => {
+    function on(e) {
+      if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return
+      if (!revealed && (e.key === ' ' || e.key === 'Enter')) {
+        e.preventDefault()
+        setExitKind({ type: 'flip' })
+        setRevealed(true)
+      } else if (revealed && (e.key === '1' || e.key === 'ArrowLeft')) answer(false)
+      else if (revealed && (e.key === '2' || e.key === 'ArrowRight' || e.key === ' ')) answer(true)
+    }
+    window.addEventListener('keydown', on)
+    return () => window.removeEventListener('keydown', on)
+  }, [revealed, answer])
+
+  if (!current) {
+    const missed = [...state.missed].map((id) => notes[id]).filter(Boolean)
+    const pct = state.total ? Math.round(((state.total - missed.length) / state.total) * 100) : 0
+    return (
+      <div className="study app">
+        <motion.div style={{ margin: 'auto 0', textAlign: 'center' }} initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} transition={soft}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+            <Ring value={pct / 100} size={140} stroke={13} from="#f4c34a" to="#f39a4c">
+              <div>
+                <b>{pct}%</b>
+                <small>с первого раза</small>
+              </div>
+            </Ring>
+          </div>
+          <h1 className="title">Прогон завершён</h1>
+          <p className="subtitle">
+            {state.total} {plural(state.total, 'карточка', 'карточки', 'карточек')} · {missed.length ? `подтянуть ${missed.length}` : 'всё знаешь'}
+          </p>
+        </motion.div>
+        {missed.length > 0 && (
+          <div className="card list" style={{ margin: '20px 0', textAlign: 'left' }}>
+            {missed.slice(0, 12).map((n) => (
+              <div key={n.id} className="list-item">
+                <div className="main">
+                  <div className="t">{stripHtml(n.front).slice(0, 80)}</div>
+                  <div className="s">{stripHtml(n.back).slice(0, 100)}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        <button className="btn primary block" style={{ marginTop: 'auto' }} onClick={() => back()}>
+          Готово
+        </button>
+      </div>
+    )
+  }
+
+  const note = notes[current.note]
+  if (!note) return null
+  const deck = decks[note.deck_id]
+  const section = deck ? sections[deck.section_id] : null
+  const vocab = deck?.kind === 'vocab'
+  const question = current.dir === 'rev' ? note.back : note.front
+  const ans = current.dir === 'rev' ? note.front : note.back
+  const done = state.total - state.queue.length
+  const accent = 'linear-gradient(90deg, #f4c34a, #f39a4c)'
+
+  return (
+    <div className="study app">
+      <div className="row" style={{ gap: 12 }}>
+        <button className="icon-btn ghost" onClick={() => back()} aria-label="Закончить">
+          <Icon name="close" />
+        </button>
+        <div className="study-progress">
+          <motion.i style={{ background: accent }} animate={{ width: `${Math.max(3, (done / Math.max(1, state.total + state.missed.size)) * 100)}%` }} transition={soft} />
+        </div>
+        <span className="chip" style={{ color: '#f39a4c' }}>
+          <Icon name="bolt" size={13} /> прогон
+        </span>
+      </div>
+      <div className="stage">
+        <AnimatePresence mode="wait" custom={exitKind} initial={false}>
+          <CardFace key={`${current.note}-${current.tries}-${revealed ? 'b' : 'f'}`} exitKind={exitKind} accent={accent} onSwipe={revealed ? (r) => answer(r > 1) : null}>
+            <div className="kicker">
+              <span>{section?.emoji}</span>
+              <span>{deck?.name}</span>
+              <span className="spacer" />
+              <span className="chip">знаю {known}</span>
+            </div>
+            {!revealed ? (
+              <div className={`q-text ${vocab ? 'word' : ''}`}>
+                <Content text={question} format={note.format} className={vocab ? '' : 'content'} />
+              </div>
+            ) : (
+              <Back vocab={vocab} dir={current.dir} note={note} question={question} answer={ans} english={englishSide(note.front, note.back)} input="" verdict={null} />
+            )}
+          </CardFace>
+        </AnimatePresence>
+      </div>
+      <div className="study-actions">
+        {!revealed ? (
+          <button
+            className="btn block"
+            style={{ background: accent, color: '#fff' }}
+            onClick={() => {
+              setExitKind({ type: 'flip' })
+              setRevealed(true)
+            }}
+          >
+            Показать ответ
+          </button>
+        ) : (
+          <div className="rate" style={{ gridTemplateColumns: '1fr 1fr' }}>
+            <motion.button className="r1" whileTap={{ scale: 0.92 }} onClick={() => answer(false)}>
+              Не знаю
+              <small>вернётся позже</small>
+            </motion.button>
+            <motion.button className="r3" whileTap={{ scale: 0.92 }} onClick={() => answer(true)}>
+              Знаю
+              <small>дальше</small>
+            </motion.button>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }

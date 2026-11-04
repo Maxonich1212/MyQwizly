@@ -1,17 +1,17 @@
 // Минимальная обёртка над IndexedDB: по стору на таблицу + meta (ключ-значение) + media (blob)
 const DB_NAME = 'myqwizly'
-export const STORES = ['sections', 'decks', 'notes', 'reviews']
+export const STORES = ['sections', 'decks', 'notes', 'reviews', 'habits', 'habit_logs']
 let dbp = null
 
 function open() {
   if (dbp) return dbp
   dbp = new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1)
+    const req = indexedDB.open(DB_NAME, 2)
+    // v2: привычки. Создаём только недостающие сторы — старые данные остаются
     req.onupgradeneeded = () => {
       const db = req.result
-      for (const s of STORES) db.createObjectStore(s, { keyPath: 'id' })
-      db.createObjectStore('meta')
-      db.createObjectStore('media')
+      for (const s of STORES) if (!db.objectStoreNames.contains(s)) db.createObjectStore(s, { keyPath: 'id' })
+      for (const s of ['meta', 'media']) if (!db.objectStoreNames.contains(s)) db.createObjectStore(s)
     }
     req.onsuccess = () => resolve(req.result)
     req.onerror = () => reject(req.error)

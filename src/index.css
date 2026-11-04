@@ -1,64 +1,66 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap');
+
 :root {
-  --bg: #f4f5f8;
-  --bg-grad: radial-gradient(1200px 600px at 10% -10%, rgba(99, 102, 241, 0.07), transparent 60%),
-    radial-gradient(900px 500px at 110% 10%, rgba(236, 72, 153, 0.05), transparent 60%);
+  --bg: #f2f3f6;
+  --bg-grad: radial-gradient(1200px 600px at 10% -10%, rgba(99, 102, 241, 0.06), transparent 60%);
   --surface: #ffffff;
-  --surface-2: #f6f7fa;
-  --surface-3: #eceef3;
+  --surface-2: #f5f6f8;
+  --surface-3: #eaecf0;
   --thumb: #ffffff;
-  --glass: rgba(255, 255, 255, 0.72);
+  --glass: rgba(255, 255, 255, 0.7);
   --line: rgba(17, 20, 36, 0.07);
   --line-2: rgba(17, 20, 36, 0.12);
-  --text: #141722;
-  --text-2: #5a6070;
-  --text-3: #9196a3;
-  --accent: #5b5cf0;
-  --accent-soft: rgba(91, 92, 240, 0.1);
+  --text: #15171c;
+  --text-2: #5c616d;
+  --text-3: #959aa5;
+  --accent: #6a6cf6;
+  --accent-soft: rgba(106, 108, 246, 0.12);
   --again: #e5484d;
   --hard: #e09422;
   --good: #1f9d68;
   --easy: #3b7ff5;
   --flame: #ff7a1a;
   --frost: #4fb6ff;
+  --dot-empty: rgba(17, 20, 36, 0.07);
   --shadow-sm: 0 1px 2px rgba(16, 20, 40, 0.05);
   --shadow: 0 1px 2px rgba(16, 20, 40, 0.04), 0 6px 20px rgba(16, 20, 40, 0.06);
   --shadow-lg: 0 2px 6px rgba(16, 20, 40, 0.05), 0 20px 50px rgba(16, 20, 40, 0.12);
-  --r-sm: 10px;
-  --r: 16px;
-  --r-lg: 22px;
+  --r-sm: 12px;
+  --r: 18px;
+  --r-lg: 24px;
   --r-xl: 28px;
-  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', Roboto, system-ui, sans-serif;
-  --mono: 'SF Mono', ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace;
+  --font: ui-rounded, 'SF Pro Rounded', 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   color-scheme: light;
 }
 
-/* Тёмная — графит с лёгкой синевой, не чёрная */
+/* Тёмная — глубокий графит, не чёрная */
 :root[data-theme='dark'] {
-  --bg: #17191f;
-  --bg-grad: radial-gradient(1200px 600px at 10% -10%, rgba(124, 124, 255, 0.09), transparent 60%),
-    radial-gradient(900px 500px at 110% 10%, rgba(236, 72, 153, 0.05), transparent 60%);
-  --surface: #20232b;
-  --surface-2: #262a33;
-  --surface-3: #2e323c;
-  --thumb: #464b58;
-  --glass: rgba(32, 35, 43, 0.72);
+  --bg: #141519;
+  --bg-grad: radial-gradient(1000px 520px at 15% -12%, rgba(124, 124, 255, 0.07), transparent 60%);
+  --surface: #1c1e23;
+  --surface-2: #23262c;
+  --surface-3: #2b2e35;
+  --thumb: #3d414b;
+  --glass: rgba(30, 32, 38, 0.72);
   --line: rgba(255, 255, 255, 0.06);
-  --line-2: rgba(255, 255, 255, 0.11);
-  --text: #eceef4;
-  --text-2: #a4a9b6;
-  --text-3: #6f7482;
-  --accent: #8183ff;
-  --accent-soft: rgba(129, 131, 255, 0.14);
+  --line-2: rgba(255, 255, 255, 0.1);
+  --text: #eef0f4;
+  --text-2: #a2a7b3;
+  --text-3: #6c717d;
+  --accent: #8587ff;
+  --accent-soft: rgba(133, 135, 255, 0.15);
   --again: #f0625f;
   --hard: #f0a93c;
   --good: #34c186;
   --easy: #5a95ff;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.22);
-  --shadow-lg: 0 2px 8px rgba(0, 0, 0, 0.25), 0 24px 60px rgba(0, 0, 0, 0.4);
+  --dot-empty: rgba(255, 255, 255, 0.055);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 8px 24px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 2px 8px rgba(0, 0, 0, 0.3), 0 24px 60px rgba(0, 0, 0, 0.45);
   color-scheme: dark;
 }
 
@@ -158,9 +160,9 @@ a {
 }
 
 .icon-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
   display: grid;
   place-items: center;
   color: var(--text-2);
@@ -1670,4 +1672,751 @@ pre.code {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
   }
+}
+
+/* ═══════════ v2: общий стиль карточек и трекера ═══════════ */
+
+.mono-label {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.head .grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.round {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
+}
+
+.round.accent {
+  background: linear-gradient(135deg, #7c7eff, #9a6cff);
+  color: #fff;
+  border: 0;
+  box-shadow: 0 8px 22px -6px rgba(124, 126, 255, 0.6);
+}
+
+.chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: 0 -18px 16px;
+  padding: 2px 18px;
+}
+
+.chips::-webkit-scrollbar {
+  display: none;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 99px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text-2);
+  font-weight: 650;
+  font-size: 14.5px;
+  white-space: nowrap;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.pill.on {
+  color: var(--text);
+}
+
+.pill .pill-bg {
+  position: absolute;
+  inset: -1px;
+  border-radius: 99px;
+  background: var(--surface-3);
+  border: 1px solid var(--line-2);
+  z-index: 0;
+}
+
+.pill > span {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* Карточка привычки / раздела с лёгким оттенком цвета */
+.tint-card {
+  position: relative;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.tint-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 11%, transparent), transparent 70%);
+  pointer-events: none;
+}
+
+.tint-card > * {
+  position: relative;
+}
+
+.ico-sq {
+  width: 50px;
+  height: 50px;
+  border-radius: 15px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--c) 18%, transparent);
+  color: var(--c);
+  flex-shrink: 0;
+  font-size: 24px;
+}
+
+.ico-sq.sm {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  font-size: 19px;
+}
+
+.habit-card {
+  padding: 16px 16px 14px;
+}
+
+.habit-card .top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.habit-card h3 {
+  margin: 0;
+  font-size: 17.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.habit-card .desc {
+  font-size: 14px;
+  color: var(--text-2);
+  margin-top: 1px;
+}
+
+/* Сетка точек (тепловая карта) */
+.dots {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, 1fr);
+  gap: var(--gap, 4px);
+  width: 100%;
+}
+
+.dots i {
+  display: block;
+  aspect-ratio: 1;
+  border-radius: 30%;
+  background: var(--dot-empty);
+}
+
+.dots i.na {
+  background: transparent;
+  position: relative;
+}
+
+.dots i.na::after {
+  content: '';
+  position: absolute;
+  inset: 40%;
+  border-radius: 50%;
+  background: var(--dot-empty);
+}
+
+/* «Жидкая» отметка: цвет наливается снизу волной */
+.liquid {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  border: 1.5px solid var(--line-2);
+  background: color-mix(in srgb, var(--c) 6%, var(--surface-2));
+  overflow: hidden;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  color: var(--text-3);
+  isolation: isolate;
+}
+
+.liquid.round-l {
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+}
+
+.liquid .water {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 120%;
+  z-index: -1;
+}
+
+.liquid .mark {
+  z-index: 1;
+}
+
+.liquid .count {
+  font-size: 12px;
+  font-weight: 800;
+  z-index: 1;
+}
+
+/* Контекстное меню */
+.menu {
+  position: fixed;
+  z-index: 160;
+  min-width: 250px;
+  padding: 6px;
+  border-radius: 22px;
+  background: var(--glass);
+  backdrop-filter: blur(28px) saturate(1.8);
+  -webkit-backdrop-filter: blur(28px) saturate(1.8);
+  border: 1px solid var(--line-2);
+  box-shadow: var(--shadow-lg);
+}
+
+.menu button {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.menu button:active,
+.menu button:hover {
+  background: var(--surface-3);
+}
+
+.menu hr {
+  border: 0;
+  height: 1px;
+  background: var(--line-2);
+  margin: 4px 10px;
+}
+
+.menu .danger {
+  color: var(--again);
+}
+
+/* Вид «неделя» */
+.week-table {
+  overflow: hidden;
+}
+
+.week-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(5, 34px);
+  gap: 5px;
+  align-items: center;
+  padding: 10px 14px;
+}
+
+.week-row + .week-row {
+  border-top: 1px solid var(--line);
+}
+
+.week-row .name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  font-weight: 650;
+  font-size: 15px;
+}
+
+.week-row .name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.week-head {
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.3;
+}
+
+.week-head b {
+  display: block;
+  font-size: 14px;
+  color: var(--text-2);
+}
+
+.week-head.today,
+.week-head.today b {
+  color: var(--text);
+}
+
+.cell {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--c) 14%, transparent);
+  position: relative;
+  overflow: hidden;
+}
+
+.cell.off {
+  background: transparent;
+}
+
+.cell.off::after {
+  content: '';
+  position: absolute;
+  inset: 15px;
+  border-radius: 50%;
+  background: var(--dot-empty);
+}
+
+/* Вид «месяц» */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (min-width: 560px) {
+  .tiles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.tile {
+  min-width: 0;
+  padding: 12px;
+  border-radius: 20px;
+}
+
+.tile .t-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-weight: 650;
+  font-size: 14.5px;
+  min-width: 0;
+}
+
+.tile .t-head span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.month-dots {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  width: 100%;
+}
+
+.month-dots i {
+  width: 100%;
+  align-self: start;
+  aspect-ratio: 1;
+  border-radius: 30%;
+  background: var(--dot-empty);
+  display: block;
+}
+
+.month-dots i.lead {
+  background: transparent;
+}
+
+/* План на сегодня */
+.plan-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  width: 100%;
+  text-align: left;
+}
+
+.plan-row + .plan-row {
+  border-top: 1px solid var(--line);
+}
+
+.play {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: 0 6px 16px -6px var(--c);
+}
+
+.habit-mini {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+}
+
+.habit-mini + .habit-mini {
+  border-top: 1px solid var(--line);
+}
+
+/* Достижения */
+.medals {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.medal {
+  padding: 16px 10px 14px;
+  text-align: center;
+  border-radius: 22px;
+}
+
+.medal .disc {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  margin: 0 auto 10px;
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+
+.medal b {
+  display: block;
+  font-size: 13.5px;
+  line-height: 1.25;
+}
+
+.medal small {
+  display: block;
+  font-size: 11.5px;
+  color: var(--text-3);
+  margin-top: 3px;
+  line-height: 1.3;
+}
+
+.medal.locked .disc {
+  background: var(--surface-3);
+  color: var(--text-3);
+}
+
+.ach-toast {
+  position: fixed;
+  top: calc(var(--safe-top) + 12px);
+  left: 50%;
+  z-index: 320;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px 10px 10px;
+  border-radius: 99px;
+  background: var(--glass);
+  backdrop-filter: blur(24px) saturate(1.7);
+  -webkit-backdrop-filter: blur(24px) saturate(1.7);
+  border: 1px solid var(--line-2);
+  box-shadow: var(--shadow-lg);
+  max-width: calc(100vw - 32px);
+}
+
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 6px;
+}
+
+.icon-grid button {
+  aspect-ratio: 1;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: var(--text-2);
+  background: var(--surface-2);
+}
+
+.icon-grid button.on {
+  color: var(--c);
+  background: color-mix(in srgb, var(--c) 18%, transparent);
+  box-shadow: inset 0 0 0 1.5px var(--c);
+}
+
+.palette {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
+}
+
+.palette button {
+  aspect-ratio: 1.15;
+  border-radius: 14px;
+  position: relative;
+}
+
+.palette button.on {
+  box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px currentColor;
+}
+
+.weekday-pills {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.weekday-pills button {
+  flex: 1;
+  height: 40px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 13px;
+  background: var(--surface-2);
+  color: var(--text-3);
+  border: 1px solid var(--line);
+}
+
+.weekday-pills button.on {
+  background: color-mix(in srgb, var(--c) 20%, transparent);
+  color: var(--c);
+  border-color: color-mix(in srgb, var(--c) 40%, transparent);
+}
+
+.sheet-save {
+  position: sticky;
+  bottom: calc(-1 * (var(--safe-bottom) + 22px));
+  margin: 18px -20px calc(-1 * (var(--safe-bottom) + 22px));
+  padding: 14px 20px calc(var(--safe-bottom) + 22px);
+  background: linear-gradient(180deg, transparent, var(--surface) 30%);
+  z-index: 3;
+}
+
+.preview-card {
+  border-radius: 22px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  padding: 18px;
+  min-height: 120px;
+  cursor: pointer;
+}
+
+.bulk-line {
+  display: flex;
+  gap: 10px;
+  padding: 9px 12px;
+  font-size: 14px;
+}
+
+.bulk-line + .bulk-line {
+  border-top: 1px solid var(--line);
+}
+
+.bulk-line b {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bulk-line span {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Точки появляются волной справа налево */
+@keyframes dotIn {
+  from {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+}
+
+.dot-in {
+  animation: dotIn 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Пустые точки внутри цветной карточки — с оттенком её цвета */
+.tint-card .dots i:not(.na),
+.tint-card .month-dots i:not(.lead) {
+  background: color-mix(in srgb, var(--c) 13%, var(--dot-empty));
+}
+
+.tint-card .dots i.na::after {
+  background: color-mix(in srgb, var(--c) 12%, var(--dot-empty));
+}
+
+.week-row .ico-sq.sm {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+}
+
+/* ═══════════ Матовое стекло и мягкое свечение ═══════════ */
+
+/* Размытые цветные пятна за интерфейсом — медленно «плавают» */
+.ambient {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.ambient i {
+  position: absolute;
+  width: 60vmax;
+  height: 60vmax;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.16;
+  animation: drift 26s ease-in-out infinite alternate;
+}
+
+:root[data-theme='light'] .ambient i {
+  opacity: 0.12;
+}
+
+.ambient i:nth-child(1) {
+  background: #7c7eff;
+  top: -25vmax;
+  left: -20vmax;
+}
+
+.ambient i:nth-child(2) {
+  background: #ec7bb8;
+  top: 30vh;
+  right: -30vmax;
+  animation-duration: 32s;
+  animation-delay: -8s;
+}
+
+.ambient i:nth-child(3) {
+  background: #4fd1c5;
+  bottom: -30vmax;
+  left: 10vw;
+  animation-duration: 38s;
+  animation-delay: -14s;
+}
+
+@keyframes drift {
+  to {
+    transform: translate(8vmax, 6vmax) scale(1.15);
+  }
+}
+
+body {
+  background-image: none;
+}
+
+.tint-card {
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  backdrop-filter: blur(26px) saturate(1.5);
+  -webkit-backdrop-filter: blur(26px) saturate(1.5);
+  border-color: color-mix(in srgb, var(--c) 10%, var(--line));
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, var(--shadow);
+}
+
+/* Свечение цвета карточки из-за иконки, как подсветка */
+.tint-card::before {
+  background: radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--c) 20%, transparent), transparent 55%),
+    linear-gradient(180deg, color-mix(in srgb, var(--c) 7%, transparent), transparent 70%);
+}
+
+.card {
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+}
+
+.ico-sq {
+  box-shadow: 0 0 24px -6px color-mix(in srgb, var(--c) 55%, transparent);
+}
+
+/* Точки: мельче, плотнее, пустые — еле заметные */
+.dots i {
+  border-radius: 28%;
+}
+
+.tint-card .dots i:not(.na),
+.tint-card .month-dots i:not(.lead) {
+  background: color-mix(in srgb, var(--c) 9%, rgba(127, 127, 140, 0.07));
+}
+
+.tint-card .dots i.na::after {
+  inset: 38%;
+  background: color-mix(in srgb, var(--c) 14%, rgba(127, 127, 140, 0.1));
+}
+
+.tiles {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.tile {
+  padding: 10px;
+  border-radius: 18px;
+}
+
+.tile .t-head {
+  font-size: 13px;
+  gap: 6px;
+  margin-bottom: 9px;
+}
+
+.month-dots {
+  gap: 3px;
+}
+
+.month-dots i {
+  border-radius: 28%;
 }

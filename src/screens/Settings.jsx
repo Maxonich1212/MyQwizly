@@ -123,7 +123,7 @@ export default function Settings() {
         </div>
       </motion.div>
       <p className="small faint" style={{ textAlign: 'center', marginTop: 24 }}>
-        MyQwizly · интервальные повторения FSRS
+        My Habit Quizly · привычки + карточки FSRS
       </p>
     </div>
   )

@@ -3,8 +3,8 @@ import { AnimatePresence, motion, animate, useMotionValue, useTransform } from '
 import Icon from './Icon'
 import { back } from '../lib/ui'
 
-export const spring = { type: 'spring', stiffness: 420, damping: 34 }
-export const soft = { type: 'spring', stiffness: 260, damping: 30 }
+export const spring = { type: 'spring', stiffness: 300, damping: 26 }
+export const soft = { type: 'spring', stiffness: 170, damping: 22 }
 
 export function TopBar({ title, onBack, right, fallback = '/' }) {
   return (

@@ -81,5 +81,27 @@ export function demoData() {
     const n = { id: id(), deck_id: d2.id, front, back, extra: {}, format: 'md', tags: [], srs: {}, suspended: false, deleted: false, created_at: t0 + 500 + i, updated_at: t0 }
     notes[n.id] = n
   })
-  return { sections: { [s1.id]: s1, [s2.id]: s2 }, decks, notes, reviews }
+  // Привычки с историей ~3 месяца
+  const habits = {}
+  const habit_logs = {}
+  const HB = [
+    { name: 'Утренняя зарядка', icon: 'activity', color: '#f4c34a', p: 0.8, category: 'Утро' },
+    { name: 'Теория iOS', icon: 'study', color: '#f2706b', p: 0.6, category: 'Учёба', description: 'Глава из Swift Book' },
+    { name: 'LeetCode', icon: 'code', color: '#6fd98a', p: 0.7, category: 'Учёба', description: 'Одна задача в день', repeat: { type: 'days', days: [0, 1, 2, 3, 4] } },
+    { name: 'Вода', icon: 'water', color: '#5ccbe8', p: 0.75, tracking: 'count', target: 8, unit: 'стак.', category: 'Здоровье' },
+    { name: 'Без соцсетей', icon: 'screen', color: '#a284f5', p: 0.15, kind: 'quit', category: 'Здоровье' },
+  ]
+  HB.forEach((x, i) => {
+    const h = { id: id(), name: x.name, description: x.description || null, icon: x.icon, color: x.color, kind: x.kind || 'build', repeat: x.repeat || { type: 'daily' }, tracking: x.tracking || 'check', target: x.target || 1, unit: x.unit || null, reminder: null, category: x.category, sort: i, archived: false, deleted: false, created_at: Date.now() - (60 + i * 8) * 864e5, updated_at: t0 }
+    habits[h.id] = h
+    for (let b = 70; b >= 1; b--) {
+      const d = new Date()
+      d.setDate(d.getDate() - b)
+      if (rnd() > x.p) continue
+      const day = dayKey(+d + 5 * 3600e3)
+      const value = h.tracking === 'count' ? 3 + Math.floor(rnd() * 6) : 1
+      habit_logs[`${h.id}:${day}`] = { id: `${h.id}:${day}`, habit_id: h.id, day, value, note: null, deleted: false, updated_at: t0 }
+    }
+  })
+  return { sections: { [s1.id]: s1, [s2.id]: s2 }, decks, notes, reviews, habits, habit_logs }
 }

@@ -1,7 +1,7 @@
 {
-  "name": "MyQwizly",
-  "short_name": "MyQwizly",
-  "description": "Карточки с интервальными повторениями для собеседований и английского",
+  "name": "My Habit Quizly",
+  "short_name": "Habit Quizly",
+  "description": "Трекер привычек и карточки с интервальными повторениями",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

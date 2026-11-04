@@ -8,12 +8,14 @@ import { plural } from '../lib/day'
 import Icon from '../components/Icon'
 import { TopBar, Flame, Pressable, soft } from '../components/ui'
 import { SectionEditor, DeckEditor } from '../components/Editors'
+import { CreateSheet } from '../components/Create'
 
 export default function Section({ id }) {
   const section = useStore((s) => s.sections[id])
   const decks = useStore((s) => s.decks)
   const [editSection, setEditSection] = useState(false)
   const [newDeck, setNewDeck] = useState(false)
+  const [create, setCreate] = useState(false)
   const list = useMemo(() => Object.values(decks).filter((d) => d.section_id === id && !d.deleted).sort((a, b) => a.sort - b.sort), [decks, id])
   const due = useDue({ sectionId: id })
   const comp = useComposition(list.map((d) => d.id))
@@ -25,6 +27,7 @@ export default function Section({ id }) {
   return (
     <div className="screen">
       <TopBar
+        fallback="/cards"
         right={
           <button className="icon-btn" onClick={() => setEditSection(true)} aria-label="Настроить раздел">
             <Icon name="edit" size={19} />
@@ -62,8 +65,11 @@ export default function Section({ id }) {
           >
             <Icon name="play" size={15} /> {due.total ? `Учить · ${due.total}` : 'Всё повторено'}
           </button>
-          <button className="btn" style={{ background: 'rgba(255,255,255,.2)', color: '#fff' }} onClick={() => go(`/import/${id}`)} aria-label="Импорт">
-            <Icon name="upload" size={19} />
+          <button className="btn" style={{ background: 'rgba(255,255,255,.2)', color: '#fff', padding: '0 16px' }} disabled={!comp.total} onClick={() => go(`/study/cram:s:${id}`)} title="Прогон всех карточек без влияния на расписание">
+            <Icon name="bolt" size={18} /> Прогон
+          </button>
+          <button className="btn" style={{ background: 'rgba(255,255,255,.2)', color: '#fff', padding: '0 16px' }} onClick={() => setCreate(true)} aria-label="Добавить карточки">
+            <Icon name="plus" size={20} />
           </button>
         </div>
       </motion.div>
@@ -100,6 +106,7 @@ export default function Section({ id }) {
 
       <SectionEditor open={editSection} onClose={() => setEditSection(false)} section={section} />
       <DeckEditor open={newDeck} onClose={() => setNewDeck(false)} sectionId={id} />
+      <CreateSheet open={create} onClose={() => setCreate(false)} />
     </div>
   )
 }
@@ -171,7 +178,7 @@ function DeckRow({ deck, sectionColor }) {
 export function Missing() {
   return (
     <div className="screen">
-      <TopBar />
+      <TopBar fallback="/cards" />
       <div className="card empty">
         <div className="big">🫥</div>
         <h3>Не найдено</h3>
