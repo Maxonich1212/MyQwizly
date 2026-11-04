@@ -66,10 +66,12 @@ export function LiquidCheck({ progress = 0, color, onTap, size = 52, round = fal
 export function useLongPress(cb, ms = 420) {
   const timer = useRef(null)
   const firedRef = useRef(false)
+  const origin = useRef({ x: 0, y: 0 })
   if (!cb) return { handlers: {}, fired: () => false }
   const start = (e) => {
     firedRef.current = false
     const { clientX: x, clientY: y } = e
+    origin.current = { x, y }
     timer.current = setTimeout(() => {
       firedRef.current = true
       navigator.vibrate?.(12)
@@ -82,7 +84,8 @@ export function useLongPress(cb, ms = 420) {
       onPointerDown: start,
       onPointerUp: cancel,
       onPointerLeave: cancel,
-      onPointerMove: (e) => (Math.abs(e.movementX) + Math.abs(e.movementY) > 6 ? cancel() : null),
+      onPointerCancel: cancel,
+      onPointerMove: (e) => (Math.hypot(e.clientX - origin.current.x, e.clientY - origin.current.y) > 8 ? cancel() : null),
       onContextMenu: (e) => {
         e.preventDefault()
         cancel()

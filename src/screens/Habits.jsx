@@ -168,11 +168,10 @@ function HabitCard({ h, logs, i, onTap, onMenu }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30, delay: Math.min(i, 6) * 0.04 }}
-      className="tint-card habit-card"
+      className="tint-card habit-card press"
       style={{ '--c': h.color }}
       onClick={() => !lp.fired() && go(`/h/${h.id}`)}
       {...lp.handlers}
-      whileTap={{ scale: 0.985 }}
     >
       <div className="top">
         <div className="ico-sq">
@@ -299,7 +298,7 @@ function MonthTile({ h, logs, month, onMenu }) {
   const lp = useLongPress((at) => onMenu(h, at))
   const p = progressOf(h, logs[dayKey()])
   return (
-    <motion.div className="tint-card tile" style={{ '--c': h.color }} onClick={() => !lp.fired() && go(`/h/${h.id}`)} {...lp.handlers} whileTap={{ scale: 0.97 }} transition={liquid}>
+    <motion.div className="tint-card tile press" style={{ '--c': h.color }} onClick={() => !lp.fired() && go(`/h/${h.id}`)} {...lp.handlers}>
       <div className="t-head">
         <LiquidCheck round size={28} progress={p} color={h.color} onTap={() => tapHabit(h)} />
         <span>{h.name}</span>

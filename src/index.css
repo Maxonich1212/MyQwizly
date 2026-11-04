@@ -79,14 +79,12 @@ body {
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  overscroll-behavior-y: none;
   overflow-x: clip;
 }
 
 body {
   min-height: 100dvh;
   background-image: var(--bg-grad);
-  background-attachment: fixed;
   transition: background-color 0.4s var(--ease), color 0.4s var(--ease);
 }
 
@@ -3160,4 +3158,21 @@ body,
 
 .liquid .mark svg {
   display: block;
+}
+
+/* Прокрутка: родная инерция и отскок iOS. Карточки «нажимаются» только при задержке пальца —
+   быстрый свайп для прокрутки их не дёргает */
+html {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: auto;
+}
+
+.press {
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.press:active {
+  transform: scale(0.985);
+  transition-delay: 90ms;
+  transition-duration: 0.18s;
 }

@@ -132,7 +132,7 @@ export default function Home() {
             {plan.rows.map(({ s, due, fresh, total }) => {
               const c = color(s.color)
               return (
-                <motion.button key={s.id} className="plan-row" whileTap={{ scale: 0.98 }} onClick={() => go(`/study/s:${s.id}`)}>
+                <motion.button key={s.id} className="plan-row press" onClick={() => go(`/study/s:${s.id}`)}>
                   <div className="ico-sq sm" style={{ '--c': c.from }}>
                     {s.emoji}
                   </div>
@@ -203,12 +203,11 @@ function SectionCard({ section, i }) {
 
   return (
     <motion.div
-      className="tint-card habit-card"
+      className="tint-card habit-card press"
       style={{ '--c': c.from }}
       initial={{ opacity: 0, y: 22, scale: 0.97 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ ...liquid, delay: 0.08 + i * 0.05 }}
-      whileTap={{ scale: 0.985 }}
       onClick={() => go(`/s/${section.id}`)}
     >
       <div className="top">

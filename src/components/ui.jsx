@@ -202,12 +202,12 @@ export function ToastHost() {
   )
 }
 
-// Строка списка с лёгким «нажатием»
+// Строка списка с лёгким «нажатием» (с задержкой — чтобы не дёргалась при прокрутке)
 export function Pressable({ children, className = '', ...rest }) {
   return (
-    <motion.button whileTap={{ scale: 0.98 }} transition={spring} className={className} {...rest}>
+    <button className={`${className} press`} {...rest}>
       {children}
-    </motion.button>
+    </button>
   )
 }
 
