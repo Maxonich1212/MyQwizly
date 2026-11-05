@@ -4228,3 +4228,112 @@ body,
   font-size: 30px;
   line-height: 0.6;
 }
+
+/* ═══ Обучение без прокрутки страницы: карточка сама подстраивается под высоту экрана ═══ */
+.study {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.study-actions {
+  position: static;
+  min-height: 0;
+  margin: 0;
+  padding: 10px 0 0;
+  background: none;
+  flex-shrink: 0;
+}
+
+.study .stage {
+  min-height: 0;
+  padding: 6px 0 10px;
+}
+
+.study .stage > div {
+  min-height: min(300px, 100%);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.study .stage .face {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 20px 20px 18px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.q-text.word.compact {
+  font-size: 32px;
+  flex: none;
+}
+
+/* Ряд под словом: «читается» · шпаргалка · озвучка — в одну строку */
+.transcr {
+  margin-top: 6px;
+  gap: 6px;
+}
+
+.transcr-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.transcr .transcr-row {
+  margin-top: 0;
+}
+
+.transcr-ru {
+  padding: 5px 12px 6px;
+}
+
+.transcr-ru b {
+  font-size: 18px;
+}
+
+.transcr-help {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--text-3);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.transcr-row .speak {
+  width: 38px;
+  height: 38px;
+}
+
+.study .example {
+  margin-top: 10px;
+  padding: 9px 12px;
+  font-size: 14px;
+}
+
+.study .mine {
+  margin-top: 10px;
+  padding: 8px 12px 9px;
+}
+
+.study .mine-text.big {
+  font-size: 19px;
+}
+
+.study .verdict {
+  margin-bottom: 10px;
+  padding: 9px 12px;
+  font-size: 15px;
+}
+
+.study .face .kicker {
+  margin-bottom: 8px;
+}

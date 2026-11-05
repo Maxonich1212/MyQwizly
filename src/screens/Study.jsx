@@ -223,7 +223,7 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
           <Icon name="close" />
         </button>
         <div className="study-progress">
-          <motion.i style={{ background: accent }} animate={{ width: `${Math.max(3, progress * 100)}%` }} transition={soft} />
+          <motion.i style={{ background: accent }} initial={{ width: '3%' }} animate={{ width: `${Math.max(3, progress * 100)}%` }} transition={soft} />
         </div>
         <span className="small faint tnum" style={{ minWidth: 44, textAlign: 'right', fontWeight: 600 }}>
           {done}/{done + left}
@@ -363,8 +363,12 @@ function useTall(active, dep) {
       setTall(false)
       return
     }
-    const el = document.getElementById('scroller')
-    const check = () => setTall(!!el && el.scrollHeight - el.clientHeight > 6)
+    // Страница больше не прокручивается — «длинным» считаем ответ, который не влез в саму карточку
+    // (она тогда листается внутри себя, и вертикальный жест нужен ей)
+    const check = () => {
+      const f = document.querySelector('.stage .face')
+      setTall(!!f && f.scrollHeight - f.clientHeight > 4)
+    }
     const t = setTimeout(check, 450)
     const face = document.querySelector('.stage .face')
     const ro = new ResizeObserver(check)
@@ -487,13 +491,12 @@ function Front({ vocab, dir, note, question, english, input, setInput, onSubmit 
   if (vocab) {
     return (
       <>
-        <div className="q-text word" style={{ minHeight: 150 }}>
+        <div className="q-text word" style={{ minHeight: 120 }}>
           <Content text={question} format={note.format} className="" />
-          {dir === 'fwd' && note.extra?.transcription && <Transcription ipa={note.extra.transcription} />}
           {dir === 'fwd' && (
-            <div style={{ marginTop: 14 }}>
+            <Transcription ipa={note.extra?.transcription}>
               <SpeakBtn text={english} />
-            </div>
+            </Transcription>
           )}
         </div>
         <input
@@ -570,16 +573,17 @@ function Back({ vocab, dir, note, question, answer, english, input, verdict, unk
           <Content text={question} format={note.format} className="" />
         </div>
         {compare && <MyAnswer input={input} unknown={unknown} marks={marks} big missing={missing} />}
-        <div className="mine-label" style={{ marginTop: compare ? 12 : 4 }}>
-          {compare ? 'ПРАВИЛЬНО' : ''}
-        </div>
-        <div className="q-text word" style={{ minHeight: 0, margin: '2px 0 4px' }}>
+        {compare && (
+          <div className="mine-label" style={{ marginTop: 10 }}>
+            ПРАВИЛЬНО
+          </div>
+        )}
+        <div className="q-text word compact" style={{ minHeight: 0, margin: '2px 0 0' }}>
           <Content text={answer} format={note.format} className="" />
         </div>
-        {note.extra?.transcription && <Transcription ipa={note.extra.transcription} />}
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
+        <Transcription ipa={note.extra?.transcription}>
           <SpeakBtn text={english} />
-        </div>
+        </Transcription>
         {note.extra?.example && (
           <div className="example">
             <Content text={note.extra.example} format={note.format} className="" />
@@ -590,7 +594,6 @@ function Back({ vocab, dir, note, question, answer, english, input, verdict, unk
             <Content text={note.extra.more} format={note.format} />
           </div>
         )}
-        {dir === 'rev' && <div className="small faint" style={{ marginTop: 14 }}>Произнеси вслух вместе с озвучкой</div>}
       </div>
     )
   }

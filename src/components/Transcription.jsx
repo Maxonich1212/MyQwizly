@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Info } from 'lucide-react'
+import { CircleHelp } from 'lucide-react'
 import { ipaToRu, cleanIpa } from '../lib/ipa'
 import { Sheet } from './ui'
 
@@ -91,24 +91,27 @@ export function IpaGuide({ open, onClose }) {
   )
 }
 
-// Транскрипция на карточке: сама запись, под ней «читается: э́йбл» с ударением и кнопка со шпаргалкой
-export default function Transcription({ ipa }) {
+// Транскрипция на карточке: запись и один компактный ряд — «читается: э́йбл», кнопка шпаргалки и (через children) озвучка
+export default function Transcription({ ipa, children }) {
   const [help, setHelp] = useState(false)
   const clean = cleanIpa(ipa)
   const ru = useMemo(() => ipaToRu(clean), [clean])
-  if (!clean) return null
+  if (!clean) return children ? <div className="transcr-row">{children}</div> : null
   return (
     <div className="transcr">
       <div className="transcr-ipa">{clean}</div>
-      {ru && (
-        <div className="transcr-ru">
-          <small>читается</small>
-          <b>{ru}</b>
-        </div>
-      )}
-      <button className="transcr-help" onClick={() => setHelp(true)}>
-        <Info size={13} /> как читать транскрипцию
-      </button>
+      <div className="transcr-row">
+        {ru && (
+          <div className="transcr-ru">
+            <small>читается</small>
+            <b>{ru}</b>
+          </div>
+        )}
+        <button className="transcr-help" onClick={() => setHelp(true)} aria-label="Как читать транскрипцию" title="Как читать транскрипцию">
+          <CircleHelp size={18} />
+        </button>
+        {children}
+      </div>
       <IpaGuide open={help} onClose={() => setHelp(false)} />
     </div>
   )
