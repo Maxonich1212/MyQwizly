@@ -1,14 +1,17 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useStore } from '../lib/store'
-import { useDue, useComposition, useSectionStreaks } from '../lib/hooks'
+import { useDue, useComposition, useSectionStreaks, CATEGORIES } from '../lib/hooks'
 import { go } from '../lib/ui'
 import { gradient, color } from '../lib/palette'
 import { plural } from '../lib/day'
 import Icon from '../components/Icon'
-import { TopBar, Flame, Pressable, soft } from '../components/ui'
+import { TopBar, Flame, Pressable, Sheet, soft } from '../components/ui'
 import { SectionEditor, DeckEditor } from '../components/Editors'
 import { CreateSheet } from '../components/Create'
+import GoSheet from '../components/GoSheet'
+import { plain } from '../lib/render'
+import { Rocket } from 'lucide-react'
 
 export default function Section({ id }) {
   const section = useStore((s) => s.sections[id])
@@ -16,6 +19,8 @@ export default function Section({ id }) {
   const [editSection, setEditSection] = useState(false)
   const [newDeck, setNewDeck] = useState(false)
   const [create, setCreate] = useState(false)
+  const [goOpen, setGoOpen] = useState(false)
+  const [pick, setPick] = useState(null)
   const list = useMemo(() => Object.values(decks).filter((d) => d.section_id === id && !d.deleted).sort((a, b) => a.sort - b.sort), [decks, id])
   const due = useDue({ sectionId: id })
   const comp = useComposition(list.map((d) => d.id))
@@ -56,25 +61,24 @@ export default function Section({ id }) {
             </span>
           )}
         </div>
-        <div className="row" style={{ marginTop: 18, gap: 10 }}>
-          <button
-            className="btn"
-            style={{ background: '#fff', color: c.from, flex: 1, boxShadow: '0 6px 18px rgba(0,0,0,.12)' }}
-            disabled={!due.total}
-            onClick={() => go(`/study/s:${id}`)}
-          >
-            <Icon name="play" size={15} /> {due.total ? `Учить · ${due.total}` : 'Всё повторено'}
+        {/* Главное действие — «Погнали» на всю ширину, остальное ровной сеткой под ним: ничего не уезжает за край */}
+        <button className="btn block" style={{ marginTop: 18, background: '#fff', color: c.from, boxShadow: '0 6px 18px rgba(0,0,0,.12)' }} disabled={!comp.total} onClick={() => setGoOpen(true)}>
+          <Rocket size={17} /> Погнали
+        </button>
+        <div className="hero-actions">
+          <button disabled={!due.total} onClick={() => go(`/study/s:${id}`)}>
+            <Icon name="play" size={14} /> {due.total ? `Повторить · ${due.total}` : 'Повторять нечего'}
           </button>
-          <button className="btn" style={{ background: 'rgba(255,255,255,.2)', color: '#fff', padding: '0 16px' }} disabled={!comp.total} onClick={() => go(`/study/cram:s:${id}`)} title="Прогон всех карточек без влияния на расписание">
-            <Icon name="bolt" size={18} /> Прогон
+          <button disabled={!comp.total} onClick={() => go(`/study/cram:s:${id}`)} title="Прогон всех карточек без влияния на расписание">
+            <Icon name="bolt" size={15} /> Прогон
           </button>
-          <button className="btn" style={{ background: 'rgba(255,255,255,.2)', color: '#fff', padding: '0 16px' }} onClick={() => setCreate(true)} aria-label="Добавить карточки">
-            <Icon name="plus" size={20} />
+          <button onClick={() => setCreate(true)} aria-label="Добавить карточки">
+            <Icon name="plus" size={17} />
           </button>
         </div>
       </motion.div>
 
-      <Composition comp={comp} />
+      <Composition comp={comp} onPick={setPick} />
 
       <div className="section-label">
         Колоды
@@ -107,25 +111,22 @@ export default function Section({ id }) {
       <SectionEditor open={editSection} onClose={() => setEditSection(false)} section={section} />
       <DeckEditor open={newDeck} onClose={() => setNewDeck(false)} sectionId={id} />
       <CreateSheet open={create} onClose={() => setCreate(false)} />
+      <CategorySheet cat={pick} ids={pick ? comp.ids[pick] : []} onClose={() => setPick(null)} />
+      <GoSheet open={goOpen} onClose={() => setGoOpen(false)} scope={`s:${id}`} title={`Погнали · ${section.name}`} />
     </div>
   )
 }
 
-export function Composition({ comp }) {
-  const parts = [
-    { k: 'new', label: 'Новые', color: 'var(--text-3)' },
-    { k: 'learning', label: 'Учу', color: 'var(--hard)' },
-    { k: 'review', label: 'Повторяю', color: 'var(--easy)' },
-    { k: 'mature', label: 'Выучено', color: 'var(--good)' },
-  ]
+// Состав: полоса и четыре плашки-кнопки. onPick(категория) — показать эти карточки
+export function Composition({ comp, onPick, active }) {
   return (
-    <div className="card pad" style={{ marginTop: 14 }}>
-      <div style={{ display: 'flex', height: 10, borderRadius: 99, overflow: 'hidden', background: 'var(--surface-3)', gap: 2 }}>
-        {parts.map((p, i) =>
+    <div className="card pad comp-card" style={{ marginTop: 14 }}>
+      <div className="comp-bar">
+        {CATEGORIES.map((p, i) =>
           comp[p.k] ? (
             <motion.i
               key={p.k}
-              style={{ background: p.color, display: 'block', height: '100%' }}
+              style={{ background: p.color }}
               initial={{ flexGrow: 0 }}
               animate={{ flexGrow: comp[p.k] }}
               transition={{ duration: 0.9, delay: 0.1 + i * 0.06, ease: [0.22, 1, 0.36, 1] }}
@@ -133,18 +134,62 @@ export function Composition({ comp }) {
           ) : null,
         )}
       </div>
-      <div className="row" style={{ justifyContent: 'space-between', marginTop: 12 }}>
-        {parts.map((p) => (
-          <div key={p.k} className="col" style={{ gap: 1 }}>
-            <b className="tnum" style={{ fontSize: 18 }}>{comp[p.k]}</b>
-            <span className="small faint row" style={{ gap: 5 }}>
+      <div className="comp-grid">
+        {CATEGORIES.map((p) => (
+          <motion.button
+            key={p.k}
+            className={`comp-chip ${active === p.k ? 'on' : ''}`}
+            style={{ '--c': p.color }}
+            whileTap={{ scale: 0.94 }}
+            disabled={!comp[p.k]}
+            onClick={() => onPick?.(active === p.k ? null : p.k)}
+          >
+            <b className="tnum">{comp[p.k]}</b>
+            <span>
               <i className="dot" style={{ background: p.color }} />
               {p.label}
             </span>
-          </div>
+          </motion.button>
         ))}
       </div>
     </div>
+  )
+}
+
+// Список карточек одной категории раздела + «Повторить эти»
+export function CategorySheet({ cat, ids, onClose }) {
+  const notes = useStore((s) => s.notes)
+  const decks = useStore((s) => s.decks)
+  const meta = CATEGORIES.find((c) => c.k === cat)
+  const list = (ids || []).map((id) => notes[id]).filter(Boolean)
+  const practice = () => {
+    sessionStorage.setItem('mq-go-ids', JSON.stringify(ids))
+    onClose()
+    go(`/study/go:${ids.length}:ids`)
+  }
+  return (
+    <Sheet open={!!cat} onClose={onClose} title={meta ? `${meta.label} · ${list.length}` : ''}>
+      {meta && (
+        <>
+          <button className="btn primary block" style={{ marginBottom: 14 }} onClick={practice} disabled={!list.length}>
+            <Rocket size={17} /> Повторить эти · {list.length}
+          </button>
+          <div className="card list" style={{ boxShadow: 'none' }}>
+            {list.slice(0, 200).map((n) => (
+              <button key={n.id} className="list-item" onClick={() => (onClose(), go(`/d/${n.deck_id}`))}>
+                <i className="dot" style={{ background: meta.color }} />
+                <div className="main">
+                  <div className="t">{plain(n.front, 90)}</div>
+                  <div className="s">
+                    {decks[n.deck_id]?.name} · {plain(n.back, 70)}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </Sheet>
   )
 }
 
@@ -161,7 +206,7 @@ function DeckRow({ deck, sectionColor }) {
           <div className="t">{deck.name}</div>
           <div className="s">
             {comp.total} {plural(comp.total, 'карточка', 'карточки', 'карточек')}
-            {comp.total ? ` · выучено ${Math.round((comp.mature / comp.total) * 100)}%` : ''}
+            {comp.total ? ` · пройдено ${Math.round((comp.passed / comp.total) * 100)}%` : ''}
           </div>
         </div>
         {due.total > 0 && (

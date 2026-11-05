@@ -3,11 +3,11 @@ import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
 import { Plus, LayoutGrid, ListChecks, CalendarDays, CalendarCheck, StickyNote, Pencil, ArrowUpDown, Archive, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { patch, remove } from '../lib/store'
 import { useHabits, useHabitLogs, progressOf, isScheduled, tapHabit, habitStats, targetOf, createdDay, setNote } from '../lib/habits'
-import { addDays, dayKey, parseKey, fmtDay, monthName, plural } from '../lib/day'
+import { addDays, dayKey, parseKey, fmtDay, monthName, plural, toKey } from '../lib/day'
 import { go } from '../lib/ui'
 import HabitIcon from '../components/HabitIcon'
 import { promptDialog, confirmDialog } from '../components/Dialog'
-import { LiquidCheck, DotGrid, MonthDots, ContextMenu, Pills, useLongPress, liquid } from '../components/fluid'
+import { LiquidCheck, DotGrid, MonthDots, ContextMenu, Pills, GlassToggle, useLongPress, liquid } from '../components/fluid'
 import { HabitEditor, ValueSheet } from '../components/HabitEditor'
 
 // Календарь плитками — главный вид: все привычки помещаются на экран без прокрутки
@@ -113,17 +113,15 @@ export default function Habits() {
             ))}
           </div>
           <span className="spacer" />
-          <div className={`view-switch day-switch ${markYesterday ? 'past' : ''}`}>
-            {[
-              ['Сегодня', false],
-              ['Вчера', true],
-            ].map(([label, y]) => (
-              <button key={label} className={markYesterday === y ? 'on' : ''} onClick={() => setMarkYesterday(y)}>
-                {markYesterday === y && <motion.span layoutId="hday" className="vs-thumb" transition={{ type: 'spring', stiffness: 420, damping: 34 }} />}
-                <span>{label}</span>
-              </button>
-            ))}
-          </div>
+          <GlassToggle
+            value={markYesterday}
+            onChange={setMarkYesterday}
+            tone={markYesterday ? 'warm' : null}
+            options={[
+              { value: false, label: 'Сегодня' },
+              { value: true, label: 'Вчера' },
+            ]}
+          />
         </div>
       )}
 
@@ -283,10 +281,14 @@ function WeekRow({ h, logs, days, onTap, onMenu }) {
   )
 }
 
+const MONTHS_IN = ['январе', 'феврале', 'марте', 'апреле', 'мае', 'июне', 'июле', 'августе', 'сентябре', 'октябре', 'ноябре', 'декабре']
+
 function MonthView({ list, logs, day, onTap, onMenu }) {
   const [offset, setOffset] = useState(0)
   const base = parseKey(dayKey())
   const month = new Date(base.getFullYear(), base.getMonth() + offset, 1, 12)
+  const monthEnd = toKey(new Date(month.getFullYear(), month.getMonth() + 1, 0, 12))
+  const existed = list.filter((h) => createdDay(h) <= monthEnd)
   return (
     <>
       <div className="row" style={{ marginBottom: 12, gap: 8 }}>
@@ -301,11 +303,35 @@ function MonthView({ list, logs, day, onTap, onMenu }) {
         </button>
       </div>
       <AnimatePresence mode="wait" initial={false}>
-        <motion.div key={offset} className="tiles" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={liquid}>
-          {list.map((h) => (
-            <MonthTile key={h.id} h={h} logs={logs[h.id] || {}} month={month} day={day} onTap={onTap} onMenu={onMenu} />
-          ))}
-        </motion.div>
+        {/* Только привычки, которые уже существовали в этом месяце; если их не было — серая заглушка */}
+        {existed.length ? (
+          <motion.div key={offset} className="tiles" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={liquid}>
+            {existed.map((h) => (
+              <MonthTile key={h.id} h={h} logs={logs[h.id] || {}} month={month} day={day} onTap={onTap} onMenu={onMenu} />
+            ))}
+          </motion.div>
+        ) : (
+          <motion.div key={offset} className="month-empty" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={liquid} aria-disabled="true">
+            <div className="month-empty-ghosts" aria-hidden="true">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="ghost-tile">
+                  <i />
+                  <div className="ghost-dots">
+                    {Array.from({ length: 28 }, (_, j) => (
+                      <span key={j} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="month-empty-text">
+              <b>Привычек ещё не было</b>
+              <span>
+                В {MONTHS_IN[month.getMonth()]} {month.getFullYear()} ты ничего не отслеживал
+              </span>
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </>
   )

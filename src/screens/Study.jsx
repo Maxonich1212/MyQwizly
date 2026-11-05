@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion, useMotionValue, useTransform } from 'framer-motion'
 import { getState, patch, upsert, uid, useStore } from '../lib/store'
-import { buildQueue, scopeDecks, LEARN_AHEAD_MS } from '../lib/queue'
+import { buildQueue, randomQueue, scopeDecks, LEARN_AHEAD_MS } from '../lib/queue'
 import { gradeNote, previewIntervals, fmtInterval, Rating } from '../lib/srs'
 import { checkVocab, keywordCoverage, stripHtml } from '../lib/check'
 import { renderContent } from '../lib/render'
 import { hydrateMedia } from '../lib/media'
 import { speak, canSpeak, englishSide } from '../lib/tts'
 import { dayKey, fmtMinutes, plural } from '../lib/day'
-import { goalFor, aggregate, globalStreak } from '../lib/stats'
+import { aggregate, globalStreak } from '../lib/stats'
 import { gradient } from '../lib/palette'
 import { back, haptic } from '../lib/ui'
 import Icon from '../components/Icon'
@@ -28,11 +28,19 @@ const RATINGS = [
   { r: Rating.Easy, label: 'Легко', key: '4' },
 ]
 
+// study/<scope> — по расписанию; cram:<scope> — прогон; go:<n>:<scope> — n случайных («Погнали»);
+// go:<n>:ids — n случайных из списка, сохранённого в sessionStorage (например, «ошибки»)
 export default function Study({ scope }) {
-  return scope.startsWith('cram:') ? <Cram scope={parseScope(scope.slice(5))} /> : <Learn scope={scope} />
+  if (scope.startsWith('cram:')) return <Cram scope={parseScope(scope.slice(5))} />
+  if (scope.startsWith('go:')) {
+    const [, n, ...rest] = scope.split(':')
+    const target = rest.join(':')
+    return <Learn scope={target === 'ids' ? 'all' : target} goCount={Number(n) || 10} goIds={target === 'ids'} />
+  }
+  return <Learn scope={scope} />
 }
 
-function Learn({ scope: scopeStr }) {
+function Learn({ scope: scopeStr, goCount, goIds }) {
   const scope = useMemo(() => parseScope(scopeStr), [scopeStr])
   const settings = useStore((s) => s.settings)
   const notes = useStore((s) => s.notes)
@@ -43,7 +51,15 @@ function Learn({ scope: scopeStr }) {
   // Первая карточка берётся внутри того же инициализатора: он должен быть чистым (StrictMode вызывает его дважды)
   const [session] = useState(() => {
     const st = getState()
-    const { queue, later } = buildQueue({ ...st, scope })
+    let ids = null
+    if (goIds) {
+      try {
+        ids = JSON.parse(sessionStorage.getItem('mq-go-ids') || '[]')
+      } catch {
+        ids = []
+      }
+    }
+    const { queue, later } = goCount ? randomQueue(st, scope, goCount, ids) : buildQueue({ ...st, scope })
     const s = { queue: [...queue], later: [...later], total: queue.length + later.length }
     s.first = takeNext(s)
     return s
@@ -124,8 +140,8 @@ function Learn({ scope: scopeStr }) {
       setStats((s) => ({ done: s.done + 1, correct: s.correct + (rating > 1 ? 1 : 0), ms: s.ms + Math.min(ms, 120000) }))
       haptic(rating === 1 ? [10, 40, 10] : 10)
 
-      const goal = goalFor(st.settings, dayKey())
-      if (before < goal && before + 1 >= goal) {
+      // Первая карточка за день продлевает серию — коротко празднуем
+      if (before === 0) {
         const s2 = getState()
         setCelebrate(globalStreak(aggregate(s2.reviews), s2.settings).current)
       }
@@ -473,7 +489,6 @@ function Finished({ stats, startedAt, empty }) {
   const days = useMemo(() => aggregate(reviews), [reviews])
   const streak = useMemo(() => globalStreak(days, settings), [days, settings])
   const today = days[dayKey()]?.n || 0
-  const goal = goalFor(settings, dayKey())
   const acc = stats.done ? stats.correct / stats.done : 0
   const minutes = fmtMinutes(Math.max(stats.ms, stats.done ? Date.now() - startedAt : 0))
 
@@ -514,9 +529,9 @@ function Finished({ stats, startedAt, empty }) {
               </div>
               <div>
                 <div style={{ fontSize: 26, fontWeight: 760 }} className="tnum">
-                  {today}/{goal}
+                  {today}
                 </div>
-                <div className="small faint">цель дня</div>
+                <div className="small faint">карточек сегодня</div>
               </div>
             </div>
           </>
@@ -564,7 +579,7 @@ function Celebrate({ streak, onClose }) {
           <Counter value={streak} />
         </motion.div>
         <motion.div initial={{ y: 14, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ ...soft, delay: 0.45 }}>
-          <h2 style={{ margin: '8px 0 4px', fontSize: 24 }}>Цель дня выполнена!</h2>
+          <h2 style={{ margin: '8px 0 4px', fontSize: 24 }}>Серия продлена!</h2>
           <p className="muted" style={{ margin: 0 }}>
             {streak} {plural(streak, 'день', 'дня', 'дней')} подряд — так держать
           </p>

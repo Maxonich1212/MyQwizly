@@ -17,6 +17,9 @@ export function useRoute() {
   return { path: hash, parts }
 }
 
+// Контейнер прокрутки приложения (вместо window — см. App.jsx)
+export const scroller = () => document.getElementById('scroller')
+
 export const go = (path) => {
   location.hash = path
 }

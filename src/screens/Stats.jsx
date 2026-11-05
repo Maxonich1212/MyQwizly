@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useStore } from '../lib/store'
 import { useDays, useStreak, useSectionStreaks, useComposition } from '../lib/hooks'
-import { goalFor, sumRange, pctChange, forecast } from '../lib/stats'
+import { sumRange, pctChange } from '../lib/stats'
 import { dayKey, addDays, parseKey, WEEKDAYS, monthShort, fmtMinutes, plural, fmtDay } from '../lib/day'
 import { gradient } from '../lib/palette'
 import { plain } from '../lib/render'
@@ -63,7 +63,6 @@ export default function Stats() {
     return { cur, prev }
   }, [days, today, periodDays])
 
-  const fc = useMemo(() => forecast(notes, decks, 14), [notes, decks])
   const hardest = useMemo(() => {
     const list = []
     for (const n of Object.values(notes)) {
@@ -153,11 +152,12 @@ export default function Stats() {
           </div>
           <Delta value={pctChange(metric === 'n' ? report.cur.n : report.cur.ms, metric === 'n' ? report.prev.n : report.prev.ms)} suffix={`к прошл. ${period === 'week' ? 'неделе' : period === 'month' ? 'месяцу' : 'году'}`} />
         </div>
-        <BarChart key={period + metric} data={chart} goal={period !== 'year' && metric === 'n' ? goalFor(settings, today) : null} />
+        <BarChart key={period + metric} data={chart} />
       </motion.div>
 
-      <motion.div className="card pad" style={{ marginTop: 12 }} {...fade(3)}>
-        <Calendar days={days} goalOf={(k) => goalFor(settings, k)} frozen={streak.frozen} />
+      {/* Календарь — компактный, без карточки вокруг */}
+      <motion.div className="mini-cal-wrap" {...fade(3)}>
+        <Calendar days={days} frozen={streak.frozen} />
       </motion.div>
 
       <div className="section-label">Отчёт за {label}</div>
@@ -178,15 +178,6 @@ export default function Stats() {
           </motion.div>
         </>
       )}
-
-      <div className="section-label">Прогноз повторений · 14 дней</div>
-      <motion.div className="card pad" {...fade(6)}>
-        <BarChart
-          height={110}
-          fill="linear-gradient(180deg, #38bdf8, #6366f1)"
-          data={fc.map((d, i) => ({ key: d.day, value: d.n, label: String(parseKey(d.day).getDate()), tip: `${i === 0 ? 'Сегодня' : fmtDay(d.day)}: ${d.n}` }))}
-        />
-      </motion.div>
 
       {hardest.length > 0 && (
         <>

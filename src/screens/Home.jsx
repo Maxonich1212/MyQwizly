@@ -1,18 +1,17 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Plus, Play, Trophy } from 'lucide-react'
+import { Plus, Play, Trophy, Rocket } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { useStreak, useToday, useSectionStreaks, useQueueState, useDue } from '../lib/hooks'
+import { useStreak, useToday, useSectionStreaks, useQueueState, useDue, useComposition, CATEGORIES } from '../lib/hooks'
 import { buildQueue } from '../lib/queue'
 import { go } from '../lib/ui'
 import { color } from '../lib/palette'
-import { goalFor } from '../lib/stats'
 import { dayKey, fmtDay, plural } from '../lib/day'
-import { noteStatus } from '../lib/srs'
 import { Ring, Flame, Counter } from '../components/ui'
 import { liquid } from '../components/fluid'
 import { SectionEditor } from '../components/Editors'
 import { CreateSheet } from '../components/Create'
+import GoSheet from '../components/GoSheet'
 
 // Сколько секунд в среднем уходит на карточку — по последним ответам
 export function useSecondsPerCard() {
@@ -31,14 +30,13 @@ const mins = (cards, spc) => Math.max(1, Math.round((cards * spc) / 60))
 
 export default function Home() {
   const sections = useStore((s) => s.sections)
-  const settings = useStore((s) => s.settings)
   const st = useQueueState()
   const streak = useStreak()
   const today = useToday()
   const spc = useSecondsPerCard()
   const [newSection, setNewSection] = useState(false)
   const [create, setCreate] = useState(false)
-  const goal = goalFor(settings, dayKey())
+  const [goOpen, setGoOpen] = useState(false)
   const live = useMemo(() => Object.values(sections).filter((s) => !s.deleted).sort((a, b) => a.sort - b.sort), [sections])
 
   // План: по каждому разделу — сколько к повторению и сколько новых
@@ -67,15 +65,15 @@ export default function Home() {
         </motion.button>
       </motion.div>
 
-      {/* Итог дня: цель + одна понятная главная кнопка */}
+      {/* Итог дня без целей: кольцо — сколько из сегодняшней очереди уже пройдено */}
       <motion.div className="tint-card" style={{ '--c': '#7c7eff', padding: 20 }} initial={{ opacity: 0, y: 16, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={liquid}>
         <div className="hero-grid">
-          <Ring value={today.n / goal} size={116} stroke={11}>
+          <Ring value={today.n + plan.total ? today.n / (today.n + plan.total) : 0} size={116} stroke={11}>
             <div>
               <b>
                 <Counter value={today.n} />
               </b>
-              <small>из {goal}</small>
+              <small>сегодня</small>
             </div>
           </Ring>
           <div style={{ minWidth: 0 }}>
@@ -84,7 +82,7 @@ export default function Home() {
               <span style={{ fontWeight: 700 }}>
                 {streak.current} {plural(streak.current, 'день', 'дня', 'дней')}
               </span>
-              <span className="faint small">{streak.todayDone ? '· цель выполнена' : ''}</span>
+              <span className="faint small">{streak.todayDone ? '· сегодня уже был' : ''}</span>
             </div>
             {plan.total > 0 ? (
               <>
@@ -103,13 +101,23 @@ export default function Home() {
             )}
           </div>
         </div>
-        {plan.total > 0 && (
-          <motion.button className="btn primary block" style={{ marginTop: 18, flexDirection: 'column', height: 58, gap: 0 }} whileTap={{ scale: 0.97 }} onClick={() => go('/study/all')}>
-            <span className="row" style={{ gap: 8 }}>
-              <Play size={16} fill="currentColor" /> Повторить всё
-            </span>
-            <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.8 }}>все разделы подряд</span>
-          </motion.button>
+        {live.length > 0 && (
+          <div className="row" style={{ marginTop: 18, gap: 10 }}>
+            <motion.button className="btn primary shine" style={{ flex: 1, flexDirection: 'column', height: 58, gap: 0 }} whileTap={{ scale: 0.97 }} onClick={() => setGoOpen(true)}>
+              <span className="row" style={{ gap: 8 }}>
+                <Rocket size={17} /> Погнали
+              </span>
+              <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.8 }}>случайные из всех разделов</span>
+            </motion.button>
+            {plan.total > 0 && (
+              <motion.button className="btn secondary" style={{ flexDirection: 'column', height: 58, gap: 0, padding: '0 16px' }} whileTap={{ scale: 0.97 }} onClick={() => go('/study/all')}>
+                <span className="row" style={{ gap: 6 }}>
+                  <Play size={14} fill="currentColor" /> {plan.total}
+                </span>
+                <span style={{ fontSize: 11.5, fontWeight: 600, opacity: 0.7 }}>по плану</span>
+              </motion.button>
+            )}
+          </div>
         )}
         {!live.length && (
           <div className="row" style={{ marginTop: 18 }}>
@@ -171,6 +179,7 @@ export default function Home() {
 
       <SectionEditor open={newSection} onClose={() => setNewSection(false)} />
       <CreateSheet open={create} onClose={() => setCreate(false)} onNewSection={() => setNewSection(true)} />
+      <GoSheet open={goOpen} onClose={() => setGoOpen(false)} scope="all" />
     </div>
   )
 }
@@ -178,33 +187,23 @@ export default function Home() {
 // Карточка раздела: градиентная плашка, кольцо «выучено», полоса состава, колоды и кнопка «Учить»
 function SectionCard({ section, i }) {
   const decks = useStore((s) => s.decks)
-  const notes = useStore((s) => s.notes)
   const streaks = useSectionStreaks()
   const due = useDue({ sectionId: section.id })
   const st = streaks[section.id]
   const c = color(section.color)
 
-  const { comp, deckList } = useMemo(() => {
-    const deckList = Object.values(decks)
-      .filter((d) => d.section_id === section.id && !d.deleted)
-      .sort((a, b) => a.sort - b.sort)
-    const comp = { total: 0, new: 0, learning: 0, review: 0, mature: 0 }
-    for (const n of Object.values(notes)) {
-      const d = decks[n.deck_id]
-      if (n.deleted || !d || d.deleted || d.section_id !== section.id) continue
-      comp.total++
-      comp[noteStatus(n, d).status]++
-    }
-    return { comp, deckList }
-  }, [notes, decks, section.id])
+  const deckList = useMemo(
+    () =>
+      Object.values(decks)
+        .filter((d) => d.section_id === section.id && !d.deleted)
+        .sort((a, b) => a.sort - b.sort),
+    [decks, section.id],
+  )
+  const comp = useComposition(deckList.map((d) => d.id))
 
-  const pct = comp.total ? Math.round((comp.mature / comp.total) * 100) : 0
-  const parts = [
-    { k: 'new', color: 'color-mix(in srgb, var(--text) 22%, transparent)' },
-    { k: 'learning', color: 'var(--hard)' },
-    { k: 'review', color: 'var(--easy)' },
-    { k: 'mature', color: 'var(--good)' },
-  ]
+  // Кольцо — доля пройденных карточек
+  const pct = comp.total ? Math.round((comp.passed / comp.total) * 100) : 0
+  const parts = CATEGORIES
 
   return (
     <motion.div
@@ -239,10 +238,10 @@ function SectionCard({ section, i }) {
         {!comp.total && <i style={{ flexGrow: 1 }} />}
       </div>
       <div className="sv2-legend mono-label">
-        <span>новые {comp.new}</span>
-        <span>учу {comp.learning}</span>
-        <span>повтор {comp.review}</span>
-        <span style={{ color: comp.mature ? 'var(--good)' : undefined }}>выучено {comp.mature}</span>
+        <span>не пройдено {comp.todo}</span>
+        <span>в процессе {comp.progress}</span>
+        <span style={{ color: comp.passed ? 'var(--good)' : undefined }}>пройдено {comp.passed}</span>
+        <span style={{ color: comp.errors ? 'var(--again)' : undefined }}>ошибки {comp.errors}</span>
       </div>
 
       <div className="sv2-bottom">

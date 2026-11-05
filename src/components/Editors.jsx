@@ -3,7 +3,7 @@ import { getState, upsert, patch, remove, uid } from '../lib/store'
 import { PALETTE, EMOJIS, gradient } from '../lib/palette'
 import { renderContent } from '../lib/render'
 import { back } from '../lib/ui'
-import { Sheet, Segmented, Stepper, toast } from './ui'
+import { Sheet, Segmented, toast } from './ui'
 import Icon from './Icon'
 import { confirmDialog } from './Dialog'
 
@@ -37,7 +37,6 @@ export function SectionEditor({ open, onClose, section }) {
     back()
   }
 
-  const settingsGoal = getState().settings.sectionGoal
   return (
     <Sheet open={open} onClose={onClose} title={section ? 'Раздел' : 'Новый раздел'}>
       <div className="row" style={{ marginBottom: 18 }}>
@@ -64,13 +63,6 @@ export function SectionEditor({ open, onClose, section }) {
               {e}
             </button>
           ))}
-        </div>
-      </div>
-      <div className="field">
-        <span>Цель раздела в день (для его стрика)</span>
-        <div className="row">
-          <Stepper value={goal ?? settingsGoal} onChange={setGoal} min={1} max={300} step={5} />
-          <span className="small faint">карточек</span>
         </div>
       </div>
       <div className="row" style={{ marginTop: 8 }}>

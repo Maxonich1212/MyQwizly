@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useAnimationControls } from 'framer-motion'
 import { createPortal } from 'react-dom'
 import { Check } from 'lucide-react'
 import { addDays, dayKey, parseKey, weekStart, toKey } from '../lib/day'
@@ -320,3 +320,31 @@ export function Pills({ items, value, onChange, id = 'pills' }) {
 }
 
 export const weekdayIndex = (key) => (parseKey(key).getDay() + 6) % 7
+
+// Переключатель в стиле Liquid Glass: стеклянная «линза» перетекает строго по горизонтали
+// и чуть растягивается в пути, как капля. tone — подкрасить линзу (например, режим «Вчера»)
+export function GlassToggle({ options, value, onChange, tone }) {
+  const idx = Math.max(0, options.findIndex((o) => o.value === value))
+  const lens = useAnimationControls()
+  const prev = useRef(idx)
+  useEffect(() => {
+    if (prev.current === idx) return
+    prev.current = idx
+    lens.start({
+      x: `${idx * 100}%`,
+      scaleX: [1, 1.22, 1],
+      scaleY: [1, 0.88, 1],
+      transition: { x: { type: 'spring', stiffness: 380, damping: 30 }, scaleX: { duration: 0.42, ease: 'easeOut' }, scaleY: { duration: 0.42, ease: 'easeOut' } },
+    })
+  }, [idx, lens])
+  return (
+    <div className={`glass-toggle ${tone ? `tone-${tone}` : ''}`} style={{ '--n': options.length }} role="tablist">
+      <motion.span className="glass-lens" initial={{ x: `${idx * 100}%` }} animate={lens} />
+      {options.map((o) => (
+        <button key={String(o.value)} role="tab" aria-selected={o.value === value} className={o.value === value ? 'on' : ''} onClick={() => o.value !== value && onChange(o.value)}>
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}

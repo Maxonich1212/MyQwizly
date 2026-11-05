@@ -2,10 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { CalendarCheck, Layers, ChartNoAxesColumn, Settings as SettingsIcon } from 'lucide-react'
 import { useStore } from './lib/store'
-import { applyTheme, useRoute, go } from './lib/ui'
+import { applyTheme, useRoute, go, scroller } from './lib/ui'
 import { uploadPending } from './lib/media'
 import { ToastHost } from './components/ui'
-import { liquid } from './components/fluid'
 import Auth from './screens/Auth'
 import Habits from './screens/Habits'
 import HabitDetail from './screens/HabitDetail'
@@ -84,10 +83,10 @@ export default function App() {
   }, [user])
 
   useEffect(() => {
-    window.scrollTo(0, 0)
+    scroller()?.scrollTo(0, 0)
   }, [path])
 
-  const hideBar = useHideOnScroll(path)
+  const hideBar = useHideOnScroll(`${path}|${ready}|${user?.id || ""}`)
 
   // Загрузочный экран держим минимум ~0.9 с, чтобы он не мелькал, и плавно растворяем
   const [showSplash, setShowSplash] = useState(true)
@@ -138,6 +137,9 @@ export default function App() {
       </div>
       {/* Только анимация входа: новый экран «проявляется» из размытия, старый снимается сразу.
           Анимируем только transform и opacity — их считает видеокарта, переходы не лагают */}
+      {/* Прокручивается не страница, а этот контейнер: на iPhone «резиновая» прокрутка всей страницы
+          сдвигала закреплённый таб-бар в середину экрана. Бар живёт снаружи и всегда стоит на месте */}
+      <div className="scroller" id="scroller">
       <motion.div
         key={path + today}
         initial={{ opacity: 0, x: dir * 28, y: dir === 0 ? 8 : 0 }}
@@ -146,6 +148,7 @@ export default function App() {
       >
         <ErrorBoundary key={path + today}>{screenFor(parts)}</ErrorBoundary>
       </motion.div>
+      </div>
 
       <AnimatePresence>
         {tabRoot && (
@@ -205,10 +208,12 @@ function useHideOnScroll(resetKey) {
   const [hidden, setHidden] = useState(false)
   useEffect(() => {
     setHidden(false)
-    let last = window.scrollY
+    const el = scroller()
+    if (!el) return
+    let last = el.scrollTop
     let acc = 0
     const on = () => {
-      const y = window.scrollY
+      const y = el.scrollTop
       const d = y - last
       last = y
       if (y < 30) {
@@ -220,8 +225,8 @@ function useHideOnScroll(resetKey) {
       if (acc > 6) setHidden(true)
       else if (acc < -10) setHidden(false)
     }
-    window.addEventListener('scroll', on, { passive: true })
-    return () => window.removeEventListener('scroll', on)
+    el.addEventListener('scroll', on, { passive: true })
+    return () => el.removeEventListener('scroll', on)
   }, [resetKey])
   return hidden
 }

@@ -3456,3 +3456,469 @@ html {
 .day-switch.past button.on {
   color: var(--hard);
 }
+
+/* ═══ Прокрутка внутри контейнера, страница стоит на месте ═══ */
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
+.scroller {
+  position: fixed;
+  inset: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+.scroller > div {
+  max-width: 680px;
+  margin: 0 auto;
+  min-height: 100%;
+}
+
+/* ═══ Компактный календарь статистики (без карточки) ═══ */
+.mini-cal-wrap {
+  max-width: 300px;
+  margin: 22px auto 4px;
+}
+
+.mini-cal-wrap .cal-head {
+  margin-bottom: 8px;
+}
+
+.mini-cal-wrap .cal-head b {
+  font-size: 15px;
+}
+
+.mini-cal-wrap .cal-head .icon-btn {
+  width: 32px;
+  height: 32px;
+}
+
+.mini-cal-wrap .cal {
+  gap: 4px;
+}
+
+.mini-cal-wrap .cal .wd {
+  font-size: 10px;
+  padding-bottom: 2px;
+}
+
+.mini-cal-wrap .cal .d {
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.mini-cal-wrap .cal .d:not([class*='lvl']):not(.frozen):not(.future) {
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+}
+
+.mini-cal-wrap .cal .d.today {
+  box-shadow: inset 0 0 0 1.5px var(--text);
+}
+
+.mini-cal-wrap .legend {
+  display: none;
+}
+
+/* ═══ «Погнали» ═══ */
+.go-badge {
+  width: 66px;
+  height: 66px;
+  margin: 2px auto 12px;
+  border-radius: 22px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(135deg, #7c7eff, #a855f7 60%, #ec4899);
+  box-shadow: 0 14px 30px -12px rgba(168, 85, 247, 0.7);
+}
+
+.go-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.go-presets button {
+  min-width: 56px;
+  height: 46px;
+  padding: 0 16px;
+  border-radius: 15px;
+  font-weight: 750;
+  font-size: 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--text-2);
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.go-presets button.on {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, #7c7eff, #9a6cff);
+  box-shadow: 0 8px 20px -8px rgba(124, 126, 255, 0.7);
+}
+
+.go-custom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  height: 52px;
+  padding: 0 8px 0 16px;
+  border-radius: 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.go-custom span {
+  flex: 1;
+}
+
+.go-custom input {
+  width: 84px;
+  height: 38px;
+  border-radius: 11px;
+  border: 1px solid var(--line-2);
+  background: var(--surface);
+  text-align: center;
+  font-size: 17px;
+  font-weight: 750;
+  outline: none;
+}
+
+.go-custom input:focus {
+  border-color: var(--accent);
+}
+
+/* Вторичные действия раздела/колоды: ровная сетка, всё помещается по ширине */
+.hero-actions {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.hero-actions.plain {
+  grid-template-columns: 1fr auto;
+  margin-bottom: 4px;
+}
+
+.hero-actions button {
+  height: 42px;
+  padding: 0 14px;
+  border-radius: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 14px;
+  white-space: nowrap;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.2);
+  min-width: 0;
+}
+
+.hero-actions.plain button {
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.hero-actions button:disabled {
+  opacity: 0.5;
+}
+
+/* ═══ Состав: полоса + плашки-кнопки ═══ */
+.comp-bar {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  border-radius: 99px;
+  overflow: hidden;
+  background: var(--surface-3);
+}
+
+.comp-bar i {
+  display: block;
+  height: 100%;
+}
+
+.comp-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.comp-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 9px 8px 8px 10px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+  border: 1px solid transparent;
+  text-align: left;
+  min-width: 0;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.comp-chip b {
+  font-size: 19px;
+  font-weight: 780;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.comp-chip span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 650;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.comp-chip .dot {
+  width: 7px;
+  height: 7px;
+}
+
+.comp-chip:disabled {
+  opacity: 0.45;
+}
+
+.comp-chip.on {
+  border-color: var(--c);
+  background: color-mix(in srgb, var(--c) 14%, transparent);
+}
+
+/* Импорт: свои названия и иконки */
+.imp-emoji {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  flex-shrink: 0;
+}
+
+.imp-emoji:disabled {
+  opacity: 1;
+  border-color: transparent;
+}
+
+.imp-input {
+  width: 100%;
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  font-size: 15px;
+  font-weight: 600;
+  outline: none;
+}
+
+.imp-input.strong {
+  font-weight: 750;
+}
+
+.imp-input:focus {
+  border-color: var(--accent);
+}
+
+/* ═══ Liquid Glass переключатель ═══ */
+.glass-toggle {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--n), 78px);
+  height: 42px;
+  padding: 3px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
+  backdrop-filter: blur(18px) saturate(1.6);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 6%, transparent);
+  isolation: isolate;
+}
+
+.glass-toggle button {
+  position: relative;
+  z-index: 1;
+  height: 34px;
+  border-radius: 99px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-3);
+  transition: color 0.25s;
+}
+
+.glass-toggle button.on {
+  color: var(--text);
+}
+
+/* Линза: стекло с бликом сверху и мягкой тенью */
+.glass-lens {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 78px;
+  height: 34px;
+  border-radius: 99px;
+  z-index: 0;
+  background: linear-gradient(180deg, color-mix(in srgb, #fff 22%, transparent), color-mix(in srgb, #fff 6%, transparent));
+  border: 1px solid color-mix(in srgb, #fff 22%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 40%, transparent), inset 0 -1px 2px color-mix(in srgb, #000 10%, transparent), 0 6px 16px -6px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px) saturate(2);
+  -webkit-backdrop-filter: blur(6px) saturate(2);
+  will-change: transform;
+}
+
+:root[data-theme='light'] .glass-lens {
+  background: linear-gradient(180deg, #ffffff, #f1f2f6);
+  border-color: rgba(17, 20, 36, 0.08);
+  box-shadow: inset 0 1px 0 #fff, 0 4px 12px -4px rgba(16, 20, 40, 0.2);
+}
+
+/* «Вчера»: тёплая янтарная линза */
+.glass-toggle.tone-warm {
+  border-color: color-mix(in srgb, var(--hard) 40%, transparent);
+}
+
+.glass-toggle.tone-warm .glass-lens {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--hard) 55%, transparent), color-mix(in srgb, var(--hard) 22%, transparent));
+  border-color: color-mix(in srgb, var(--hard) 60%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 45%, transparent), 0 6px 18px -6px var(--hard);
+}
+
+.glass-toggle.tone-warm button.on {
+  color: #fff;
+}
+
+/* Месяц, в котором привычек ещё не было: серая неактивная заглушка */
+.month-empty {
+  position: relative;
+  pointer-events: none;
+  user-select: none;
+}
+
+.month-empty-ghosts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  opacity: 0.35;
+  filter: grayscale(1);
+  -webkit-mask-image: linear-gradient(180deg, #000 30%, transparent);
+  mask-image: linear-gradient(180deg, #000 30%, transparent);
+}
+
+.ghost-tile {
+  padding: 10px;
+  border-radius: 20px;
+  border: 1px dashed var(--line-2);
+}
+
+.ghost-tile > i {
+  display: block;
+  width: 60%;
+  height: 10px;
+  border-radius: 6px;
+  margin-bottom: 14px;
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+}
+
+.ghost-dots {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.ghost-dots span {
+  aspect-ratio: 1;
+  border-radius: 28%;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.month-empty-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 4px;
+  color: var(--text-3);
+}
+
+.month-empty-text b {
+  font-size: 15px;
+  color: var(--text-2);
+}
+
+.month-empty-text span {
+  font-size: 13px;
+}
+
+/* Состав: 2×2, подписи помещаются целиком */
+.comp-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.comp-chip {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+}
+
+.comp-chip span {
+  order: -1;
+  font-size: 13px;
+}
+
+@media (min-width: 560px) {
+  .comp-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.mini-cal-wrap {
+  max-width: 236px;
+}
+
+.mini-cal-wrap .cal {
+  gap: 3px;
+}
+
+.mini-cal-wrap .cal .d {
+  border-radius: 7px;
+  font-size: 9.5px;
+}
+
+.mini-cal-wrap .cal-head .small {
+  font-size: 11.5px;
+}

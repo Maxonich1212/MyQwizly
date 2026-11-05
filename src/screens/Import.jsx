@@ -5,6 +5,7 @@ import { parseFile, planImport, commitImport } from '../lib/import'
 import { go } from '../lib/ui'
 import { plain } from '../lib/render'
 import { plural } from '../lib/day'
+import { EMOJIS, pickEmoji } from '../lib/palette'
 import Icon from '../components/Icon'
 import { TopBar, soft, spring } from '../components/ui'
 
@@ -62,17 +63,32 @@ export default function Import({ sectionId }) {
     }
   }
 
+  // Свои названия и иконки: правки разделов по исходному имени, колод — по номеру в плане
+  const [secEdit, setSecEdit] = useState({})
+  const [deckNames, setDeckNames] = useState({})
+  const [emojiFor, setEmojiFor] = useState(null)
+
   const plan = useMemo(() => {
     if (!parsed) return []
-    return planImport(parsed, target, baseName).map((p, i) => (kinds[i] ? { ...p, kind: kinds[i] } : p))
-  }, [parsed, target, baseName, kinds, sections]) // eslint-disable-line
+    return planImport(parsed, target, baseName).map((p, i) => {
+      const o = secEdit[p.sectionName] || {}
+      return {
+        ...p,
+        kind: kinds[i] || p.kind,
+        sectionKey: p.sectionName,
+        sectionName: o.name?.trim() || p.sectionName,
+        emoji: o.emoji,
+        deckName: deckNames[i]?.trim() || p.deckName,
+      }
+    })
+  }, [parsed, target, baseName, kinds, sections, secEdit, deckNames]) // eslint-disable-line
 
   // Группируем план по разделам для превью
   const tree = useMemo(() => {
     const m = new Map()
     plan.forEach((p, i) => {
-      if (!m.has(p.sectionName)) m.set(p.sectionName, { name: p.sectionName, exists: !!p.sectionId, decks: [] })
-      m.get(p.sectionName).decks.push({ ...p, i })
+      if (!m.has(p.sectionKey)) m.set(p.sectionKey, { key: p.sectionKey, name: p.sectionName, emoji: p.emoji || (p.sectionId ? sections[p.sectionId]?.emoji : pickEmoji(p.sectionName)), exists: !!p.sectionId, decks: [] })
+      m.get(p.sectionKey).decks.push({ ...p, i })
     })
     return [...m.values()]
   }, [plan])
@@ -157,17 +173,56 @@ export default function Import({ sectionId }) {
 
                 <div className="section-label">Как разложится</div>
                 {tree.map((sec) => (
-                  <div key={sec.name} className="card" style={{ marginBottom: 10, overflow: 'hidden' }}>
+                  <div key={sec.key} className="card" style={{ marginBottom: 10, overflow: 'hidden' }}>
                     <div className="tree-item" style={{ background: 'var(--surface-2)' }}>
-                      <b style={{ flex: 1 }}>{sec.name}</b>
-                      <span className={`chip ${sec.exists ? '' : 'accent'}`}>{sec.exists ? 'есть' : 'новый раздел'}</span>
+                      <button className="imp-emoji" disabled={sec.exists} onClick={() => setEmojiFor(emojiFor === sec.key ? null : sec.key)} aria-label="Иконка раздела">
+                        {sec.emoji}
+                      </button>
+                      {sec.exists ? (
+                        <b style={{ flex: 1 }}>{sec.name}</b>
+                      ) : (
+                        <input
+                          className="imp-input strong"
+                          value={secEdit[sec.key]?.name ?? sec.name}
+                          onChange={(e) => setSecEdit((x) => ({ ...x, [sec.key]: { ...x[sec.key], name: e.target.value } }))}
+                          placeholder="Название раздела"
+                        />
+                      )}
+                      <span className={`chip ${sec.exists ? '' : 'accent'}`}>{sec.exists ? 'есть' : 'новый'}</span>
                     </div>
+                    <AnimatePresence initial={false}>
+                      {emojiFor === sec.key && (
+                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} style={{ overflow: 'hidden' }}>
+                          <div className="emojis" style={{ padding: 10 }}>
+                            {EMOJIS.map((e) => (
+                              <button
+                                key={e}
+                                className={sec.emoji === e ? 'on' : ''}
+                                onClick={() => {
+                                  setSecEdit((x) => ({ ...x, [sec.key]: { ...x[sec.key], emoji: e } }))
+                                  setEmojiFor(null)
+                                }}
+                              >
+                                {e}
+                              </button>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                     {sec.decks.map((d) => (
                       <div key={d.i} className="tree-item">
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 600 }}>
-                            {d.deckName} {!d.deckId && <span className="small faint">· новая</span>}
-                          </div>
+                          {d.deckId ? (
+                            <div style={{ fontWeight: 600 }}>{d.deckName}</div>
+                          ) : (
+                            <input
+                              className="imp-input"
+                              value={deckNames[d.i] ?? d.deckName}
+                              onChange={(e) => setDeckNames((x) => ({ ...x, [d.i]: e.target.value }))}
+                              placeholder="Название колоды"
+                            />
+                          )}
                           <div className="small faint" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {d.group.cards.length} · напр. «{plain(d.group.cards[0].front, 40)}»
                           </div>
@@ -187,7 +242,7 @@ export default function Import({ sectionId }) {
                   </div>
                 ))}
                 <div className="small faint" style={{ margin: '4px 4px 16px' }}>
-                  Тип колоды определён автоматически — нажми на него, чтобы поменять. Дубли пропускаются, импорт можно повторять.
+                  Названия и иконки новых разделов и колод можно поменять прямо здесь. Тип колоды определён автоматически — нажми на него, чтобы сменить. Дубли пропускаются.
                 </div>
                 <button className="btn primary block" onClick={run} disabled={busy}>
                   Импортировать {parsed.total}

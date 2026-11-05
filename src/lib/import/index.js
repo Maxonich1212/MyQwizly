@@ -61,7 +61,7 @@ export async function commitImport(parsed, plan) {
     let sectionId = p.sectionId || secByName[norm(p.sectionName)]
     if (!sectionId) {
       const color = PALETTE[order % PALETTE.length].id
-      const s = { id: uid(), name: p.sectionName, emoji: pickEmoji(p.sectionName), color, sort: order++, deleted: false, goal: null }
+      const s = { id: uid(), name: p.sectionName, emoji: p.emoji || pickEmoji(p.sectionName), color, sort: order++, deleted: false, goal: null }
       newSections.push(s)
       sectionId = secByName[norm(p.sectionName)] = s.id
     }

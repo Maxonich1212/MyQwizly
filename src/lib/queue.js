@@ -21,10 +21,9 @@ export function newSeenToday(reviews) {
   return out
 }
 
-export function buildQueue({ notes, decks, reviews, settings, scope, now = Date.now() }) {
+export function buildQueue({ notes, decks, scope, now = Date.now() }) {
   const deckList = scopeDecks(decks, scope)
   const deckById = Object.fromEntries(deckList.map((d) => [d.id, d]))
-  const seen = newSeenToday(reviews)
   const today = dayKey(now)
   const due = []
   const later = []
@@ -50,11 +49,11 @@ export function buildQueue({ notes, decks, reviews, settings, scope, now = Date.
     }
   }
 
+  // Без дневного лимита новых: добавил карточки — сразу можно учить
   const news = []
-  for (const [deckId, list] of Object.entries(fresh)) {
-    const left = Math.max(0, settings.newPerDay - (seen[deckId] || 0))
+  for (const list of Object.values(fresh)) {
     list.sort((a, b) => a.created - b.created)
-    news.push(...list.slice(0, left))
+    news.push(...list)
   }
 
   due.sort((a, b) => a.due - b.due)
@@ -74,4 +73,32 @@ export function buildQueue({ notes, decks, reviews, settings, scope, now = Date.
 export function dueSummary(state, scope) {
   const { counts, later } = buildQueue({ ...state, scope })
   return { due: counts.due, fresh: counts.fresh, soon: later.length, total: counts.due + counts.fresh }
+}
+
+// «Погнали»: n случайных карточек из выбранного — в любом статусе, ответы засчитываются как обычно.
+// ids — ограничить конкретными записями (например, «ошибки» из состава раздела)
+export function randomQueue({ notes, decks }, scope, n, ids) {
+  const deckById = Object.fromEntries(scopeDecks(decks, scope).map((d) => [d.id, d]))
+  const only = ids ? new Set(ids) : null
+  const items = []
+  for (const note of Object.values(notes)) {
+    const deck = deckById[note.deck_id]
+    if (!deck || note.deleted || note.suspended || (only && !only.has(note.id))) continue
+    // У слов направление выбираем случайно, чтобы одна пара не попадалась дважды подряд
+    const dirs = dirsFor(deck)
+    const dir = dirs[Math.floor(Math.random() * dirs.length)]
+    items.push({ note: note.id, dir, isNew: !note.srs?.[dir] })
+  }
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[items[i], items[j]] = [items[j], items[i]]
+  }
+  return { queue: items.slice(0, n), later: [] }
+}
+
+export function countInScope({ notes, decks }, scope) {
+  const deckIds = new Set(scopeDecks(decks, scope).map((d) => d.id))
+  let n = 0
+  for (const note of Object.values(notes)) if (deckIds.has(note.deck_id) && !note.deleted && !note.suspended) n++
+  return n
 }

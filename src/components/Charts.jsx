@@ -55,7 +55,7 @@ export function BarChart({ data, goal, height = 160, fill = 'linear-gradient(180
 }
 
 // Минималистичный календарь месяца: насыщенность = объём, ❄ — день спасён заморозкой
-export function Calendar({ days, goalOf, frozen }) {
+export function Calendar({ days, frozen }) {
   const [offset, setOffset] = useState(0)
   const [dirn, setDirn] = useState(0)
   const base = parseKey(dayKey())
@@ -71,10 +71,10 @@ export function Calendar({ days, goalOf, frozen }) {
   const level = (k) => {
     const n = days[k]?.n || 0
     if (!n) return 0
-    const g = goalOf(k)
-    if (n >= g * 2) return 4
-    if (n >= g) return 3
-    if (n >= g / 2) return 2
+    // Насыщенность по объёму, без привязки к цели
+    if (n >= 50) return 4
+    if (n >= 25) return 3
+    if (n >= 10) return 2
     return 1
   }
   for (const k of cells) if (k && days[k]?.n) studied++

@@ -46,22 +46,58 @@ export function useDue(scope) {
   }, [st.notes, st.decks, st.reviews, st.settings, key])
 }
 
-// Состав колоды/раздела: всего, новые, на изучении, выученные
+// Последний ответ на каждую запись — по нему видно, ошибка это или пройдено
+export function useLastRatings() {
+  const reviews = useStore((s) => s.reviews)
+  return useMemo(() => {
+    const last = {}
+    for (const r of Object.values(reviews)) {
+      const cur = last[r.note_id]
+      if (!cur || r.reviewed_at > cur.at) last[r.note_id] = { rating: r.rating, at: r.reviewed_at }
+    }
+    return last
+  }, [reviews])
+}
+
+// Понятные категории вместо терминов FSRS:
+// не пройдено — ещё ни разу; ошибки — последний ответ «Снова»;
+// в процессе — «Трудно» или карточка ещё на шагах изучения; пройдено — «Хорошо»/«Легко»
+export const CATEGORIES = [
+  { k: 'todo', label: 'Не пройдено', color: 'color-mix(in srgb, var(--text) 30%, transparent)' },
+  { k: 'progress', label: 'В процессе', color: 'var(--hard)' },
+  { k: 'passed', label: 'Пройдено', color: 'var(--good)' },
+  { k: 'errors', label: 'Ошибки', color: 'var(--again)' },
+]
+
+export function categoryOf(note, deck, last) {
+  const st = noteStatus(note, deck)
+  if (st.status === 'new') return 'todo'
+  const l = last[note.id]
+  if (l?.rating === 1) return 'errors'
+  if (l?.rating === 2 || st.status === 'learning') return 'progress'
+  return 'passed'
+}
+
 export function useComposition(deckIds) {
   const notes = useStore((s) => s.notes)
   const decks = useStore((s) => s.decks)
+  const last = useLastRatings()
   const key = deckIds.join(',')
   return useMemo(() => {
     const set = new Set(deckIds)
-    const out = { total: 0, new: 0, learning: 0, review: 0, mature: 0 }
+    const out = { total: 0, todo: 0, progress: 0, passed: 0, errors: 0, mature: 0, ids: { todo: [], progress: [], passed: [], errors: [] } }
     for (const n of Object.values(notes)) {
       if (n.deleted || !set.has(n.deck_id)) continue
+      const deck = decks[n.deck_id]
+      const c = categoryOf(n, deck, last)
       out.total++
-      out[noteStatus(n, decks[n.deck_id]).status]++
+      out[c]++
+      out.ids[c].push(n.id)
+      if (noteStatus(n, deck).mature) out.mature++
     }
     return out
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [notes, decks, key])
+  }, [notes, decks, last, key])
 }
 
 export function useToday() {

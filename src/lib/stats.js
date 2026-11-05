@@ -14,11 +14,9 @@ export function aggregate(reviews) {
   return days
 }
 
-export function goalFor(settings, day) {
-  let g = settings.dailyGoal
-  const hist = settings.goalHistory || []
-  for (const h of hist) if (h.from <= day) g = h.goal
-  return g
+// Целей нет — учишься, когда можешь: день засчитан в серию, если повторена хотя бы одна карточка
+export function goalFor() {
+  return 1
 }
 
 // Стрик с «заморозками»: пропущенный день съедает заморозку недели, если она осталась.
@@ -60,7 +58,7 @@ export function globalStreak(days, settings) {
 }
 
 export function sectionStreak(days, settings, section) {
-  const goal = section.goal || settings.sectionGoal
+  const goal = 1
   const own = Object.fromEntries(Object.entries(days).filter(([, v]) => v.sections[section.id]))
   return streak((d) => days[d]?.sections[section.id] || 0, () => goal, settings.freezesPerWeek, firstDayOf(own))
 }

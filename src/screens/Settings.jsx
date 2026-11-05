@@ -83,15 +83,6 @@ export default function Settings() {
 
       <div className="section-label">Учёба</div>
       <motion.div className="card" {...fade(1)}>
-        <Row title="Цель на день" hint="Сколько карточек засчитывает день в стрик">
-          <Stepper value={s.dailyGoal} onChange={(dailyGoal) => updateSettings({ dailyGoal })} min={5} max={500} step={5} />
-        </Row>
-        <Row title="Новых в день" hint="На каждую колоду">
-          <Stepper value={s.newPerDay} onChange={(newPerDay) => updateSettings({ newPerDay })} min={0} max={200} step={5} />
-        </Row>
-        <Row title="Цель раздела" hint="По умолчанию для стрика раздела">
-          <Stepper value={s.sectionGoal} onChange={(sectionGoal) => updateSettings({ sectionGoal })} min={1} max={300} step={5} />
-        </Row>
         <Row title="Заморозки в неделю" hint="Спасают стрик в пропущенный день">
           <Stepper value={s.freezesPerWeek} onChange={(freezesPerWeek) => updateSettings({ freezesPerWeek })} min={0} max={3} />
         </Row>
