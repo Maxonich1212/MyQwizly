@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion, useMotionValue, useTransform } from 'framer-motion'
 import { getState, patch, upsert, uid, useStore } from '../lib/store'
-import { buildQueue, randomQueue, scopeDecks, LEARN_AHEAD_MS } from '../lib/queue'
+import { buildQueue, randomQueue, scopeDecks } from '../lib/queue'
 import { gradeNote, previewIntervals, fmtInterval, Rating } from '../lib/srs'
 import { checkVocab, keywordCoverage, stripHtml, diffMarks } from '../lib/check'
 import { renderContent } from '../lib/render'
@@ -14,6 +14,8 @@ import { back, haptic } from '../lib/ui'
 import Icon from '../components/Icon'
 import { Flame, Ring, Counter, soft, spring } from '../components/ui'
 import { NoteEditor } from '../components/Editors'
+import Transcription from '../components/Transcription'
+import { playSound, soundFor } from '../lib/sfx'
 
 function parseScope(s) {
   if (s.startsWith('s:')) return { sectionId: s.slice(2) }
@@ -69,6 +71,7 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
   const [input, setInput] = useState('')
   const [unknown, setUnknown] = useState(false) // нажал «Не знаю» — ответ раскрыт без проверки
   const [swipeHint, setSwipeHint] = useState(() => !localStorage.getItem('mq-swiped'))
+  const tall = useTall(revealed, `${current?.note}${current?.dir}`)
   const [exitKind, setExitKind] = useState({ type: 'next', rating: 3 })
   const [stats, setStats] = useState({ done: 0, correct: 0, ms: 0 })
   const [celebrate, setCelebrate] = useState(null)
@@ -108,6 +111,9 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
     if (showsEnglish) speak(english)
   }, [vocab, settings.autoSpeak, english, note?.id, dir, revealed]) // eslint-disable-line
 
+  // Звук уже прозвучал для этой карточки (слово проверено при вводе) — на оценке второй раз не играем
+  const sounded = useRef(false)
+
   const reveal = useCallback(
     (dontKnow = false) => {
       if (!current || revealed) return
@@ -115,8 +121,14 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
       setUnknown(dontKnow === true)
       setRevealed(true)
       haptic(6)
+      // Введённое слово проверяется сразу — сразу и звук: верно / почти / мимо
+      if (dontKnow !== true && vocab && input.trim()) {
+        const v = checkVocab(input, answer).verdict
+        playSound(v === 'exact' ? 'ok' : v === 'close' ? 'meh' : 'bad')
+        sounded.current = true
+      }
     },
-    [current, revealed],
+    [current, revealed, vocab, input, answer],
   )
 
   const grade = useCallback(
@@ -142,10 +154,13 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
         day: dayKey(),
         reviewed_at: +now,
       })
-      if (g.due - Date.now() <= LEARN_AHEAD_MS) session.later.push({ note: n.id, dir: current.dir, due: g.due })
-      session.later.sort((a, b) => a.due - b.due)
+      // Карточка не возвращается в эту же сессию — расписание само покажет её позже.
+      // Раньше «Снова/Трудно» и даже «Хорошо» на новой карточке ставили её обратно в очередь на 1–10 минут,
+      // и 20 выбранных карточек превращались в 40+
       setStats((s) => ({ done: s.done + 1, correct: s.correct + (rating > 1 ? 1 : 0), ms: s.ms + Math.min(ms, 120000) }))
       haptic(rating === 1 ? [10, 40, 10] : 10)
+      if (!sounded.current) playSound(soundFor(rating))
+      sounded.current = false
 
       // Первая карточка за день продлевает серию — коротко празднуем
       if (before === 0) {
@@ -230,10 +245,12 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
                   }
                 : null
             }
+            tall={tall}
             swipe={
               intervals && {
-                left: { icon: 'close', label: 'Снова', sub: `через ${fmtInterval(intervals[Rating.Again])}`, tone: 'again' },
-                right: { icon: 'check', label: 'Хорошо', sub: `через ${fmtInterval(intervals[Rating.Good])}`, tone: 'good' },
+                left: { icon: 'close', label: 'Не знаю', sub: `покажу через ${fmtInterval(intervals[Rating.Again])}` },
+                right: { icon: 'clock', label: 'Повторить позже', sub: `через ${fmtInterval(intervals[Rating.Good])}` },
+                up: { icon: 'check', label: 'Выучил', sub: `теперь через ${fmtInterval(intervals[Rating.Easy])}` },
               }
             }
           >
@@ -287,10 +304,11 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
               {swipeHint && (
                 <div className="swipe-hint">
                   <div>
-                    <span>← Снова</span>
-                    <span>Хорошо →</span>
+                    <span>← Не знаю</span>
+                    {!tall && <span className="up">↑ Выучил</span>}
+                    <span>Позже →</span>
                   </div>
-                  <i>свайп только ставит оценку — ничего не удаляется</i>
+                  <i>{tall ? 'ответ длинный — оцени кнопками ниже' : 'свайп только ставит оценку — ничего не удаляется'}</i>
                 </div>
               )}
               <div className="rate">
@@ -332,11 +350,40 @@ const faceVariants = {
   exit: (k) =>
     k.type === 'flip'
       ? { rotateY: 90, transition: { duration: 0.16, ease: 'easeIn' } }
-      : { opacity: 0, x: k.rating === 1 ? -140 : 140, rotate: k.rating === 1 ? -6 : 6, scale: 0.96, transition: { duration: 0.26, ease: [0.4, 0, 1, 1] } },
+      : k.rating === 4
+        ? { opacity: 0, y: -190, scale: 0.94, transition: { duration: 0.28, ease: [0.4, 0, 1, 1] } }
+        : { opacity: 0, x: k.rating === 1 ? -140 : 140, rotate: k.rating === 1 ? -6 : 6, scale: 0.96, transition: { duration: 0.26, ease: [0.4, 0, 1, 1] } },
 }
 
-function CardFace({ children, exitKind, accent, onSwipe, swipe }) {
+// Влезает ли ответ на экран. Если нет — вертикальный жест нужен для прокрутки, и свайп вверх отключается
+function useTall(active, dep) {
+  const [tall, setTall] = useState(false)
+  useEffect(() => {
+    if (!active) {
+      setTall(false)
+      return
+    }
+    const el = document.getElementById('scroller')
+    const check = () => setTall(!!el && el.scrollHeight - el.clientHeight > 6)
+    const t = setTimeout(check, 450)
+    const face = document.querySelector('.stage .face')
+    const ro = new ResizeObserver(check)
+    if (face) ro.observe(face)
+    return () => {
+      clearTimeout(t)
+      ro.disconnect()
+    }
+  }, [active, dep])
+  return tall
+}
+
+function CardFace({ children, exitKind, accent, onSwipe, swipe, tall = false }) {
   const x = useMotionValue(0)
+  const y = useMotionValue(0)
+  const canUp = !!swipe?.up && !tall
+  const blue = useTransform(y, [-140, -20], [0.9, 0])
+  const upOp = useTransform(y, [-120, -25], [1, 0])
+  const upScale = useTransform(y, [-130, -60], [1.06, 0.85])
   const rotate = useTransform(x, [-220, 220], [-7, 7])
   const red = useTransform(x, [-140, -20], [0.9, 0])
   const green = useTransform(x, [20, 140], [0, 0.9])
@@ -359,15 +406,20 @@ function CardFace({ children, exitKind, accent, onSwipe, swipe }) {
       animate="center"
       exit="exit"
       transition={exitKind.type === 'flip' ? { duration: 0.22, ease: 'easeOut' } : soft}
-      drag={onSwipe ? 'x' : false}
+      drag={onSwipe ? (canUp ? true : 'x') : false}
+      dragDirectionLock
       dragSnapToOrigin
       dragElastic={0.85}
       onDragEnd={(_, i) => {
         if (!onSwipe) return
-        if (i.offset.x < -120 || i.velocity.x < -800) onSwipe(Rating.Again)
-        else if (i.offset.x > 120 || i.velocity.x > 800) onSwipe(Rating.Good)
+        const { x: dx, y: dy } = i.offset
+        const { x: vx, y: vy } = i.velocity
+        // Вверх — только если жест заметно вертикальный
+        if (canUp && Math.abs(dy) > Math.abs(dx) && (dy < -110 || vy < -700)) onSwipe(Rating.Easy)
+        else if (dx < -120 || vx < -800) onSwipe(Rating.Again)
+        else if (dx > 120 || vx > 800) onSwipe(Rating.Good)
       }}
-      style={{ x, rotate, position: 'relative', touchAction: onSwipe ? 'pan-y' : 'auto' }}
+      style={{ x, y, rotate, position: 'relative', touchAction: onSwipe ? (canUp ? 'none' : 'pan-y') : 'auto' }}
     >
       <div className="face" ref={ref}>
         {accent && <div className="accent-bar" style={{ background: accent }} />}
@@ -377,8 +429,18 @@ function CardFace({ children, exitKind, accent, onSwipe, swipe }) {
         <>
           <motion.div style={{ opacity: red, position: 'absolute', inset: 0, borderRadius: 28, boxShadow: 'inset 0 0 0 3px var(--again)', background: 'color-mix(in srgb, var(--again) 10%, transparent)', pointerEvents: 'none' }} />
           <motion.div style={{ opacity: green, position: 'absolute', inset: 0, borderRadius: 28, boxShadow: 'inset 0 0 0 3px var(--good)', background: 'color-mix(in srgb, var(--good) 10%, transparent)', pointerEvents: 'none' }} />
+          {canUp && <motion.div style={{ opacity: blue, position: 'absolute', inset: 0, borderRadius: 28, boxShadow: 'inset 0 0 0 3px var(--easy)', background: 'color-mix(in srgb, var(--easy) 10%, transparent)', pointerEvents: 'none' }} />}
           {swipe && (
             <>
+              {canUp && (
+                <motion.div className="swipe-stamp easy" style={{ opacity: upOp, scale: upScale }}>
+                  <Icon name={swipe.up.icon} size={20} stroke={3} />
+                  <div>
+                    <b>{swipe.up.label}</b>
+                    <small>{swipe.up.sub}</small>
+                  </div>
+                </motion.div>
+              )}
               <motion.div className="swipe-stamp again" style={{ opacity: leftOp, scale: leftScale }}>
                 <Icon name={swipe.left.icon} size={20} stroke={3} />
                 <div>
@@ -427,7 +489,7 @@ function Front({ vocab, dir, note, question, english, input, setInput, onSubmit 
       <>
         <div className="q-text word" style={{ minHeight: 150 }}>
           <Content text={question} format={note.format} className="" />
-          {dir === 'fwd' && note.extra?.transcription && <div className="meta-line">{stripHtml(note.extra.transcription)}</div>}
+          {dir === 'fwd' && note.extra?.transcription && <Transcription ipa={note.extra.transcription} />}
           {dir === 'fwd' && (
             <div style={{ marginTop: 14 }}>
               <SpeakBtn text={english} />
@@ -514,7 +576,7 @@ function Back({ vocab, dir, note, question, answer, english, input, verdict, unk
         <div className="q-text word" style={{ minHeight: 0, margin: '2px 0 4px' }}>
           <Content text={answer} format={note.format} className="" />
         </div>
-        {note.extra?.transcription && <div className="meta-line">{stripHtml(note.extra.transcription)}</div>}
+        {note.extra?.transcription && <Transcription ipa={note.extra.transcription} />}
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
           <SpeakBtn text={english} />
         </div>
@@ -717,6 +779,7 @@ function Cram({ scope }) {
         if (current.tries < 2) state.queue.splice(Math.min(state.queue.length, 4 + Math.floor(Math.random() * 4)), 0, { ...current, tries: current.tries + 1 })
       }
       haptic(ok ? 10 : [10, 40, 10])
+      playSound(ok ? 'ok' : 'bad')
       setExitKind({ type: 'next', rating: ok ? 3 : 1 })
       setRevealed(false)
       setCurrent(state.queue[0] || null)

@@ -3,6 +3,7 @@ import { useStore, updateSettings, syncNow, signOut, releaseHeld } from '../lib/
 import { plural } from '../lib/day'
 import { confirmDialog } from '../components/Dialog'
 import Reminders from '../components/Reminders'
+import { playSound } from '../lib/sfx'
 import { go } from '../lib/ui'
 import Icon from '../components/Icon'
 import { Segmented, Stepper, Switch, soft, toast } from '../components/ui'
@@ -100,6 +101,30 @@ export default function Settings() {
         <Row title="Автоозвучка английского">
           <Switch on={s.autoSpeak} onChange={(autoSpeak) => updateSettings({ autoSpeak })} />
         </Row>
+        <Row title="Звуки ответов" hint="Тихий сигнал: верно или неверно. Беззвучный режим iPhone его отключает">
+          <Switch
+            on={s.sound}
+            onChange={(sound) => {
+              updateSettings({ sound })
+              if (sound) setTimeout(() => playSound('ok'), 60)
+            }}
+          />
+        </Row>
+        {s.sound && (
+          <Row title="Громкость звуков">
+            <Segmented
+              value={s.soundLevel}
+              onChange={(soundLevel) => {
+                updateSettings({ soundLevel })
+                setTimeout(() => playSound('ok'), 60)
+              }}
+              options={[
+                { value: 'low', label: 'Тихо' },
+                { value: 'mid', label: 'Средне' },
+              ]}
+            />
+          </Row>
+        )}
         <Row title="Вибрация" hint="На Android">
           <Switch on={s.haptics} onChange={(haptics) => updateSettings({ haptics })} />
         </Row>

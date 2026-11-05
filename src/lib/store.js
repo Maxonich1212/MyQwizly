@@ -17,6 +17,8 @@ export const DEFAULT_SETTINGS = {
   sectionGoal: 10,
   retention: 0.9,
   autoSpeak: true,
+  sound: true,
+  soundLevel: 'mid',
   haptics: true,
   askSync: true,
 }
