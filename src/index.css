@@ -3433,3 +3433,26 @@ html {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
+
+/* Переключатель «Сегодня / Вчера» — та же капсула, что и выбор вида */
+.day-switch button {
+  width: auto;
+  padding: 0 12px;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.day-switch button span {
+  position: relative;
+  z-index: 1;
+}
+
+/* В режиме «Вчера» капсула подсвечена — чтобы не забыть вернуться */
+.day-switch.past {
+  border-color: color-mix(in srgb, var(--hard) 55%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--hard) 14%, transparent);
+}
+
+.day-switch.past button.on {
+  color: var(--hard);
+}

@@ -36,6 +36,7 @@ let state = {
   pending: 0,
   held: 0,
   syncAsk: null,
+  today: dayKey(),
 }
 const listeners = new Set()
 const emptyDirty = () => ({ ...Object.fromEntries(TABLES.map((t) => [t, new Set()])), settings: false })
@@ -161,7 +162,17 @@ export function releaseHeld() {
 
 // ——— Загрузка и вход ———
 
+// Смена дня: проверяем раз в 15 секунд и при каждом возвращении в приложение.
+// Компоненты перерисовываются по state.today, поэтому в 00:00 экран обновляется сам
+function watchDay() {
+  const check = () => dayKey() !== state.today && emit({ today: dayKey() })
+  setInterval(check, 15_000)
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && check())
+  window.addEventListener('focus', check)
+}
+
 export async function boot() {
+  watchDay()
   if (import.meta.env.DEV && new URLSearchParams(location.search).has('demo')) {
     const { demoData } = await import('./demo')
     emit({ ...demoData(), user: { id: 'demo', email: 'demo@local' }, ready: true })

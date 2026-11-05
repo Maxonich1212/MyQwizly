@@ -61,6 +61,7 @@ export default function App() {
   const ready = useStore((s) => s.ready)
   const user = useStore((s) => s.user)
   const theme = useStore((s) => s.settings.theme)
+  const today = useStore((s) => s.today)
   const { path, parts } = useRoute()
   const depth = depthOf(parts)
   const prev = useRef({ path, depth })
@@ -138,12 +139,12 @@ export default function App() {
       {/* Только анимация входа: новый экран «проявляется» из размытия, старый снимается сразу.
           Анимируем только transform и opacity — их считает видеокарта, переходы не лагают */}
       <motion.div
-        key={path}
+        key={path + today}
         initial={{ opacity: 0, x: dir * 28, y: dir === 0 ? 8 : 0 }}
         animate={{ opacity: 1, x: 0, y: 0 }}
         transition={{ type: 'spring', stiffness: 420, damping: 40, opacity: { duration: 0.18, ease: 'easeOut' } }}
       >
-        <ErrorBoundary key={path}>{screenFor(parts)}</ErrorBoundary>
+        <ErrorBoundary key={path + today}>{screenFor(parts)}</ErrorBoundary>
       </motion.div>
 
       <AnimatePresence>

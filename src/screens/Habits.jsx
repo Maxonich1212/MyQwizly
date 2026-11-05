@@ -34,11 +34,14 @@ export default function Habits() {
   const [editor, setEditor] = useState(null) // null | {} (новая) | habit | шаблон
   const [menu, setMenu] = useState(null)
   const [valueFor, setValueFor] = useState(null)
+  // За какой день ставятся галочки: сегодня или вчера (если забыл отметить вечером)
+  const [markYesterday, setMarkYesterday] = useState(false)
+  const markDay = markYesterday ? addDays(dayKey(), -1) : dayKey()
 
   const cats = useMemo(() => [...new Set(habits.map((h) => h.category).filter(Boolean))], [habits])
   const list = cat === 'all' ? habits : habits.filter((h) => h.category === cat)
-  const doneToday = habits.filter((h) => isScheduled(h, dayKey()) && progressOf(h, logs[h.id]?.[dayKey()]) >= 1).length
-  const dueToday = habits.filter((h) => isScheduled(h, dayKey())).length
+  const doneToday = habits.filter((h) => isScheduled(h, markDay) && progressOf(h, logs[h.id]?.[markDay]) >= 1).length
+  const dueToday = habits.filter((h) => isScheduled(h, markDay)).length
 
   const changeView = (v) => {
     setView(v)
@@ -84,7 +87,8 @@ export default function Habits() {
       <div className="head">
         <div className="grow">
           <div className="mono-label">
-            {dueToday ? `Сегодня ${doneToday} из ${dueToday}` : fmtDay(dayKey())}
+            {markYesterday ? 'Вчера · ' : 'Сегодня · '}
+            {dueToday ? `${doneToday} из ${dueToday}` : fmtDay(markDay)}
           </div>
           <h1 className="title" style={{ margin: '4px 0 0' }}>
             Привычки
@@ -105,6 +109,18 @@ export default function Habits() {
               <button key={v.value} className={view === v.value ? 'on' : ''} onClick={() => changeView(v.value)} aria-label={v.value}>
                 {view === v.value && <motion.span layoutId="hview" className="vs-thumb" transition={{ type: 'spring', stiffness: 420, damping: 34 }} />}
                 <v.icon size={18} />
+              </button>
+            ))}
+          </div>
+          <span className="spacer" />
+          <div className={`view-switch day-switch ${markYesterday ? 'past' : ''}`}>
+            {[
+              ['Сегодня', false],
+              ['Вчера', true],
+            ].map(([label, y]) => (
+              <button key={label} className={markYesterday === y ? 'on' : ''} onClick={() => setMarkYesterday(y)}>
+                {markYesterday === y && <motion.span layoutId="hday" className="vs-thumb" transition={{ type: 'spring', stiffness: 420, damping: 34 }} />}
+                <span>{label}</span>
               </button>
             ))}
           </div>
@@ -136,13 +152,13 @@ export default function Habits() {
                 <div className="col" style={{ gap: 12 }}>
                   <AnimatePresence initial={false}>
                     {list.map((h, i) => (
-                      <HabitCard key={h.id} h={h} logs={logs[h.id] || {}} i={i} onTap={(d) => tap(h, d)} onMenu={(at) => openMenu(h, at)} />
+                      <HabitCard key={h.id} h={h} logs={logs[h.id] || {}} i={i} day={markDay} onTap={(d) => tap(h, d)} onMenu={(at) => openMenu(h, at)} />
                     ))}
                   </AnimatePresence>
                 </div>
               )}
               {view === 'week' && <WeekView list={list} logs={logs} onTap={tap} onMenu={openMenu} />}
-              {view === 'month' && <MonthView list={list} logs={logs} onTap={tap} onMenu={openMenu} />}
+              {view === 'month' && <MonthView list={list} logs={logs} day={markDay} onTap={tap} onMenu={openMenu} />}
             </motion.div>
           </AnimatePresence>
         </LayoutGroup>
@@ -155,8 +171,8 @@ export default function Habits() {
   )
 }
 
-function HabitCard({ h, logs, i, onTap, onMenu }) {
-  const today = dayKey()
+function HabitCard({ h, logs, i, day, onTap, onMenu }) {
+  const today = day
   const st = useMemo(() => habitStats(h, logs), [h, logs])
   const log = logs[today]
   const p = progressOf(h, log)
@@ -267,7 +283,7 @@ function WeekRow({ h, logs, days, onTap, onMenu }) {
   )
 }
 
-function MonthView({ list, logs, onTap, onMenu }) {
+function MonthView({ list, logs, day, onTap, onMenu }) {
   const [offset, setOffset] = useState(0)
   const base = parseKey(dayKey())
   const month = new Date(base.getFullYear(), base.getMonth() + offset, 1, 12)
@@ -287,7 +303,7 @@ function MonthView({ list, logs, onTap, onMenu }) {
       <AnimatePresence mode="wait" initial={false}>
         <motion.div key={offset} className="tiles" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={liquid}>
           {list.map((h) => (
-            <MonthTile key={h.id} h={h} logs={logs[h.id] || {}} month={month} onTap={onTap} onMenu={onMenu} />
+            <MonthTile key={h.id} h={h} logs={logs[h.id] || {}} month={month} day={day} onTap={onTap} onMenu={onMenu} />
           ))}
         </motion.div>
       </AnimatePresence>
@@ -296,9 +312,9 @@ function MonthView({ list, logs, onTap, onMenu }) {
 }
 
 // Плитка календаря: название слева, отметка справа, выполненная — подсвечивается цветом привычки
-function MonthTile({ h, logs, month, onTap, onMenu }) {
+function MonthTile({ h, logs, month, day, onTap, onMenu }) {
   const lp = useLongPress((at) => onMenu(h, at))
-  const today = dayKey()
+  const today = day
   const p = progressOf(h, logs[today])
   const done = p >= 1 && isScheduled(h, today)
   const countLabel = h.tracking !== 'check' && h.kind !== 'quit' && p < 1 ? `${logs[today]?.value || 0}` : null
