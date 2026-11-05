@@ -59,23 +59,20 @@ export function useLastRatings() {
   }, [reviews])
 }
 
-// Понятные категории вместо терминов FSRS:
-// не пройдено — ещё ни разу; ошибки — последний ответ «Снова»;
-// в процессе — «Трудно» или карточка ещё на шагах изучения; пройдено — «Хорошо»/«Легко»
+// Кучки (как в Quizlet): «Знаю» и «Не знаю» — по ПОСЛЕДНЕМУ ответу на карточку, независимо от расписания повторений
+// и от того, в какой сессии ответил. «Не пройдено» — на карточку ещё ни разу не отвечал.
+// Ответил иначе в следующий раз — карточка сама переезжает в другую кучку.
 export const CATEGORIES = [
+  { k: 'unknown', label: 'Не знаю', color: 'var(--again)' },
+  { k: 'known', label: 'Знаю', color: 'var(--good)' },
   { k: 'todo', label: 'Не пройдено', color: 'color-mix(in srgb, var(--text) 30%, transparent)' },
-  { k: 'progress', label: 'В процессе', color: 'var(--hard)' },
-  { k: 'passed', label: 'Пройдено', color: 'var(--good)' },
-  { k: 'errors', label: 'Ошибки', color: 'var(--again)' },
 ]
 
 export function categoryOf(note, deck, last) {
-  const st = noteStatus(note, deck)
-  if (st.status === 'new') return 'todo'
   const l = last[note.id]
-  if (l?.rating === 1) return 'errors'
-  if (l?.rating === 2 || st.status === 'learning') return 'progress'
-  return 'passed'
+  // Оценки «Трудно» из прошлых версий (2) считаем как «не знаю»: уверенности не было
+  if (l) return l.rating >= 3 ? 'known' : 'unknown'
+  return noteStatus(note, deck).status === 'new' ? 'todo' : 'known'
 }
 
 export function useComposition(deckIds) {
@@ -85,7 +82,7 @@ export function useComposition(deckIds) {
   const key = deckIds.join(',')
   return useMemo(() => {
     const set = new Set(deckIds)
-    const out = { total: 0, todo: 0, progress: 0, passed: 0, errors: 0, mature: 0, ids: { todo: [], progress: [], passed: [], errors: [] } }
+    const out = { total: 0, todo: 0, unknown: 0, known: 0, mature: 0, ids: { todo: [], unknown: [], known: [] } }
     for (const n of Object.values(notes)) {
       if (n.deleted || !set.has(n.deck_id)) continue
       const deck = decks[n.deck_id]

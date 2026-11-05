@@ -69,9 +69,6 @@ export default function Section({ id }) {
           <button disabled={!due.total} onClick={() => go(`/study/s:${id}`)}>
             <Icon name="play" size={14} /> {due.total ? `Повторить · ${due.total}` : 'Повторять нечего'}
           </button>
-          <button disabled={!comp.total} onClick={() => go(`/study/cram:s:${id}`)} title="Прогон всех карточек без влияния на расписание">
-            <Icon name="bolt" size={15} /> Прогон
-          </button>
           <button onClick={() => setCreate(true)} aria-label="Добавить карточки">
             <Icon name="plus" size={17} />
           </button>
@@ -206,7 +203,7 @@ function DeckRow({ deck, sectionColor }) {
           <div className="t">{deck.name}</div>
           <div className="s">
             {comp.total} {plural(comp.total, 'карточка', 'карточки', 'карточек')}
-            {comp.total ? ` · пройдено ${Math.round((comp.passed / comp.total) * 100)}%` : ''}
+            {comp.total ? ` · знаю ${comp.known} из ${comp.total}` : ''}
           </div>
         </div>
         {due.total > 0 && (

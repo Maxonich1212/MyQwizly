@@ -4337,3 +4337,207 @@ body,
 .study .face .kicker {
   margin-bottom: 8px;
 }
+
+/* ═══ «Знаю / Не знаю»: кнопки, итог круга и кучки ═══ */
+.yn-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.yn {
+  height: 58px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 760;
+  border: 1.5px solid transparent;
+  transition: box-shadow 0.25s, transform 0.18s;
+}
+
+.yn.no {
+  color: var(--again);
+  background: color-mix(in srgb, var(--again) 12%, var(--surface));
+  border-color: color-mix(in srgb, var(--again) 35%, transparent);
+}
+
+.yn.yes {
+  color: #fff;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--good) 92%, #000), var(--good));
+  box-shadow: 0 10px 24px -12px var(--good);
+}
+
+.yn.solid {
+  color: #fff;
+  background: var(--again);
+  border-color: transparent;
+  height: 54px;
+}
+
+/* Подсказка по проверке: какая кнопка подходит */
+.yn.suggest {
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 22%, transparent);
+}
+
+.yn.yes.suggest {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 35%, transparent), 0 10px 24px -12px var(--good);
+}
+
+.hero-actions {
+  grid-template-columns: 1fr auto;
+}
+
+/* Итог круга */
+.finished-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 12px;
+}
+
+.finished-actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+}
+
+.piles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 18px 0 6px;
+}
+
+.pile {
+  border-radius: 20px;
+  padding: 14px 8px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.pile b {
+  font-size: 34px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.pile span {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pile.yes {
+  color: var(--good);
+  background: color-mix(in srgb, var(--good) 13%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--good) 30%, transparent);
+}
+
+.pile.no {
+  color: var(--again);
+  background: color-mix(in srgb, var(--again) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--again) 30%, transparent);
+}
+
+.pile-title {
+  text-align: left;
+  margin: 18px 4px 8px;
+}
+
+.pile-toggle {
+  display: block;
+  margin: 14px auto 8px;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--accent);
+}
+
+.pile-list {
+  margin-top: 8px;
+}
+
+/* Общие кучки на вкладке «Карточки» */
+.piles-home {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.pile-tile {
+  position: relative;
+  text-align: left;
+  padding: 14px 16px 13px;
+  border-radius: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+
+.pile-tile b {
+  font-size: 34px;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.pile-tile span {
+  font-size: 15px;
+  font-weight: 720;
+}
+
+.pile-tile small {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.pile-tile.unknown {
+  color: var(--again);
+  background: radial-gradient(120% 100% at 0% 0%, color-mix(in srgb, var(--again) 18%, transparent), transparent 70%), var(--surface);
+  border-color: color-mix(in srgb, var(--again) 28%, transparent);
+}
+
+.pile-tile.known {
+  color: var(--good);
+  background: radial-gradient(120% 100% at 0% 0%, color-mix(in srgb, var(--good) 18%, transparent), transparent 70%), var(--surface);
+  border-color: color-mix(in srgb, var(--good) 28%, transparent);
+}
+
+.pile-tile span {
+  color: var(--text);
+}
+
+.pile-tile:disabled {
+  opacity: 0.55;
+}
+
+/* Состав раздела/колоды — три кучки */
+.comp-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.comp-chip {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 2px;
+  padding: 10px 12px;
+}
+
+.comp-chip span {
+  order: 0;
+  font-size: 12px;
+}
+
+.comp-chip span {
+  white-space: normal;
+  line-height: 1.2;
+  overflow: visible;
+}

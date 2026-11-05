@@ -10,6 +10,7 @@ import { dayKey, fmtDay, plural } from '../lib/day'
 import { Ring, Flame, Counter } from '../components/ui'
 import { liquid } from '../components/fluid'
 import { SectionEditor } from '../components/Editors'
+import { CategorySheet } from './Section'
 import { CreateSheet } from '../components/Create'
 import GoSheet from '../components/GoSheet'
 
@@ -37,6 +38,7 @@ export default function Home() {
   const [newSection, setNewSection] = useState(false)
   const [create, setCreate] = useState(false)
   const [goOpen, setGoOpen] = useState(false)
+  const [pile, setPile] = useState(null) // { cat, ids } — открытая кучка
   const live = useMemo(() => Object.values(sections).filter((s) => !s.deleted).sort((a, b) => a.sort - b.sort), [sections])
 
   // План: по каждому разделу — сколько к повторению и сколько новых
@@ -131,6 +133,8 @@ export default function Home() {
         )}
       </motion.div>
 
+      <PilesCard onPick={setPile} />
+
       {plan.rows.length > 0 && (
         <>
           <div className="section-label">
@@ -180,7 +184,35 @@ export default function Home() {
       <SectionEditor open={newSection} onClose={() => setNewSection(false)} />
       <CreateSheet open={create} onClose={() => setCreate(false)} onNewSection={() => setNewSection(true)} />
       <GoSheet open={goOpen} onClose={() => setGoOpen(false)} scope="all" />
+      <CategorySheet cat={pile?.cat || null} ids={pile?.ids || []} onClose={() => setPile(null)} />
     </div>
+  )
+}
+
+// Две общие кучки по всем разделам: «Не знаю» и «Знаю». Нажал — список карточек и кнопка «Повторить эти»
+function PilesCard({ onPick }) {
+  const decks = useStore((s) => s.decks)
+  const ids = useMemo(() => Object.values(decks).filter((d) => !d.deleted).map((d) => d.id), [decks])
+  const comp = useComposition(ids)
+  if (!comp.total) return null
+  const tile = (k, label, hint) => (
+    <motion.button className={`pile-tile ${k}`} whileTap={{ scale: 0.96 }} disabled={!comp[k]} onClick={() => onPick({ cat: k, ids: comp.ids[k] })}>
+      <b className="tnum">{comp[k]}</b>
+      <span>{label}</span>
+      <small>{hint}</small>
+    </motion.button>
+  )
+  return (
+    <>
+      <div className="section-label">
+        <span className="mono-label">Мои кучки</span>
+        {comp.todo > 0 && <span className="small faint">ещё не проходил: {comp.todo}</span>}
+      </div>
+      <motion.div className="piles-home" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ ...liquid, delay: 0.04 }}>
+        {tile('unknown', 'Не знаю', 'повторить эти')}
+        {tile('known', 'Знаю', 'освежить')}
+      </motion.div>
+    </>
   )
 }
 
@@ -201,8 +233,8 @@ function SectionCard({ section, i }) {
   )
   const comp = useComposition(deckList.map((d) => d.id))
 
-  // Кольцо — доля пройденных карточек
-  const pct = comp.total ? Math.round((comp.passed / comp.total) * 100) : 0
+  // Кольцо — доля карточек из кучки «Знаю»
+  const pct = comp.total ? Math.round((comp.known / comp.total) * 100) : 0
   const parts = CATEGORIES
 
   return (
@@ -238,10 +270,9 @@ function SectionCard({ section, i }) {
         {!comp.total && <i style={{ flexGrow: 1 }} />}
       </div>
       <div className="sv2-legend mono-label">
+        <span style={{ color: comp.unknown ? 'var(--again)' : undefined }}>не знаю {comp.unknown}</span>
+        <span style={{ color: comp.known ? 'var(--good)' : undefined }}>знаю {comp.known}</span>
         <span>не пройдено {comp.todo}</span>
-        <span>в процессе {comp.progress}</span>
-        <span style={{ color: comp.passed ? 'var(--good)' : undefined }}>пройдено {comp.passed}</span>
-        <span style={{ color: comp.errors ? 'var(--again)' : undefined }}>ошибки {comp.errors}</span>
       </div>
 
       <div className="sv2-bottom">

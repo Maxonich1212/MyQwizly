@@ -61,9 +61,6 @@ export default function Deck({ id }) {
         <button disabled={!due.total} onClick={() => go(`/study/d:${id}`)}>
           <Icon name="play" size={14} /> {due.total ? `Повторить · ${due.total}` : 'Повторять нечего'}
         </button>
-        <button disabled={!comp.total} onClick={() => go(`/study/cram:d:${id}`)} title="Прогон всех карточек без влияния на расписание">
-          <Icon name="bolt" size={15} /> Прогон
-        </button>
       </div>
 
       <Composition comp={comp} active={filter} onPick={(c) => setFilter(c || 'all')} />

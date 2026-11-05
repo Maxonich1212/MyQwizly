@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion, useMotionValue, useTransform } from 'framer-motion'
 import { getState, patch, upsert, uid, useStore } from '../lib/store'
-import { buildQueue, randomQueue, scopeDecks } from '../lib/queue'
-import { gradeNote, previewIntervals, fmtInterval, Rating } from '../lib/srs'
+import { buildQueue, randomQueue } from '../lib/queue'
+import { gradeNote, Rating } from '../lib/srs'
 import { checkVocab, keywordCoverage, stripHtml, diffMarks } from '../lib/check'
 import { renderContent } from '../lib/render'
 import { hydrateMedia } from '../lib/media'
@@ -15,7 +15,7 @@ import Icon from '../components/Icon'
 import { Flame, Ring, Counter, soft, spring } from '../components/ui'
 import { NoteEditor } from '../components/Editors'
 import Transcription from '../components/Transcription'
-import { playSound, soundFor } from '../lib/sfx'
+import { playSound } from '../lib/sfx'
 
 function parseScope(s) {
   if (s.startsWith('s:')) return { sectionId: s.slice(2) }
@@ -23,17 +23,9 @@ function parseScope(s) {
   return { all: true }
 }
 
-const RATINGS = [
-  { r: Rating.Again, label: 'Снова', key: '1' },
-  { r: Rating.Hard, label: 'Трудно', key: '2' },
-  { r: Rating.Good, label: 'Хорошо', key: '3' },
-  { r: Rating.Easy, label: 'Легко', key: '4' },
-]
-
-// study/<scope> — по расписанию; cram:<scope> — прогон; go:<n>:<scope> — n случайных («Погнали»);
-// go:<n>:ids — n случайных из списка, сохранённого в sessionStorage (например, «ошибки»)
+// study/<scope> — по расписанию; go:<n>:<scope> — n случайных («Погнали»);
+// go:<n>:ids — n случайных из списка (кучка «Не знаю» / «Знаю»), сам список лежит в sessionStorage
 export default function Study({ scope }) {
-  if (scope.startsWith('cram:')) return <Cram scope={parseScope(scope.slice(5))} />
   if (scope.startsWith('go:')) {
     const [, n, ...rest] = scope.split(':')
     const target = rest.join(':')
@@ -42,6 +34,16 @@ export default function Study({ scope }) {
   return <Learn scope={scope} />
 }
 
+function shuffle(list) {
+  for (let i = list.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[list[i], list[j]] = [list[j], list[i]]
+  }
+  return list
+}
+
+// Как в Quizlet: ответ только «знаю» или «не знаю». Круг — каждая карточка ровно один раз.
+// В конце круга — две кучки; «не знаю» можно сразу пройти ещё раз следующим кругом (по желанию).
 function Learn({ scope: scopeStr, goCount, goIds }) {
   const scope = useMemo(() => parseScope(scopeStr), [scopeStr])
   const settings = useStore((s) => s.settings)
@@ -49,8 +51,7 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
   const decks = useStore((s) => s.decks)
   const sections = useStore((s) => s.sections)
 
-  // Очередь снимаем один раз при входе — дальше управляем ей сами
-  // Первая карточка берётся внутри того же инициализатора: он должен быть чистым (StrictMode вызывает его дважды)
+  // Очередь снимаем один раз при входе. Первая карточка берётся в том же инициализаторе (StrictMode вызывает его дважды)
   const [session] = useState(() => {
     const st = getState()
     let ids = null
@@ -62,22 +63,26 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
       }
     }
     const { queue, later } = goCount ? randomQueue(st, scope, goCount, ids) : buildQueue({ ...st, scope })
-    const s = { queue: [...queue], later: [...later], total: queue.length + later.length }
-    s.first = takeNext(s)
+    const s = { queue: [...queue, ...later] }
+    s.total = s.queue.length
+    s.first = s.queue.shift() || null
     return s
   })
   const [current, setCurrent] = useState(session.first)
   const [revealed, setRevealed] = useState(false)
   const [input, setInput] = useState('')
-  const [unknown, setUnknown] = useState(false) // нажал «Не знаю» — ответ раскрыт без проверки
+  const [unknown, setUnknown] = useState(false) // нажал «Не знаю» до проверки — ответ раскрыт, решение уже принято
   const [swipeHint, setSwipeHint] = useState(() => !localStorage.getItem('mq-swiped'))
-  const tall = useTall(revealed, `${current?.note}${current?.dir}`)
   const [exitKind, setExitKind] = useState({ type: 'next', rating: 3 })
-  const [stats, setStats] = useState({ done: 0, correct: 0, ms: 0 })
+  const [round, setRound] = useState({ n: 1, total: session.total, done: 0 })
+  const [stats, setStats] = useState({ done: 0, know: 0, ms: 0 })
   const [celebrate, setCelebrate] = useState(null)
   const [editing, setEditing] = useState(false)
+  const outcomes = useRef([]) // ответы текущего круга: { note, dir, know }
   const shownAt = useRef(Date.now())
   const startedAt = useRef(Date.now())
+  // Звук уже прозвучал для этой карточки (слово проверено при вводе) — на ответе второй раз не играем
+  const sounded = useRef(false)
 
   const note = current ? notes[current.note] : null
   const deck = note ? decks[note.deck_id] : null
@@ -95,14 +100,13 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
     return { kind: 'qa', ...keywordCoverage(input, answer) }
   }, [revealed, note, input, vocab, answer])
 
+  // Подсказка, какая кнопка подходит: true — «знаю», false — «не знаю», null — решай сам
   const suggested = useMemo(() => {
-    if (unknown) return Rating.Again
+    if (unknown) return false
     if (!verdict) return null
-    if (verdict.kind === 'vocab') return verdict.verdict === 'exact' ? Rating.Good : verdict.verdict === 'close' ? Rating.Hard : Rating.Again
-    return verdict.ratio >= 0.7 ? Rating.Good : verdict.ratio >= 0.4 ? Rating.Hard : Rating.Again
+    if (verdict.kind === 'vocab') return verdict.verdict !== 'wrong'
+    return verdict.ratio >= 0.6
   }, [verdict, unknown])
-
-  const intervals = useMemo(() => (note && revealed ? previewIntervals(note, dir, settings.retention) : null), [note, dir, revealed, settings.retention])
 
   // Автоозвучка английского слова, когда оно на экране
   useEffect(() => {
@@ -110,9 +114,6 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
     const showsEnglish = (!revealed && dir === 'fwd') || (revealed && dir === 'rev')
     if (showsEnglish) speak(english)
   }, [vocab, settings.autoSpeak, english, note?.id, dir, revealed]) // eslint-disable-line
-
-  // Звук уже прозвучал для этой карточки (слово проверено при вводе) — на оценке второй раз не играем
-  const sounded = useRef(false)
 
   const reveal = useCallback(
     (dontKnow = false) => {
@@ -131,14 +132,16 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
     [current, revealed, vocab, input, answer],
   )
 
-  const grade = useCallback(
-    (rating) => {
+  // Ответ на карточку. Под капотом — расписание повторений: «знаю» = Хорошо, «не знаю» = Снова
+  const respond = useCallback(
+    (know) => {
       if (!current || !revealed) return
       const st = getState()
       const n = st.notes[current.note]
       const d = st.decks[n.deck_id]
       const now = new Date()
       const before = aggregate(st.reviews)[dayKey()]?.n || 0
+      const rating = know ? Rating.Good : Rating.Again
       const g = gradeNote(n, current.dir, rating, st.settings.retention, now)
       const ms = Date.now() - shownAt.current
       patch('notes', n.id, { srs: g.srs })
@@ -154,12 +157,11 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
         day: dayKey(),
         reviewed_at: +now,
       })
-      // Карточка не возвращается в эту же сессию — расписание само покажет её позже.
-      // Раньше «Снова/Трудно» и даже «Хорошо» на новой карточке ставили её обратно в очередь на 1–10 минут,
-      // и 20 выбранных карточек превращались в 40+
-      setStats((s) => ({ done: s.done + 1, correct: s.correct + (rating > 1 ? 1 : 0), ms: s.ms + Math.min(ms, 120000) }))
-      haptic(rating === 1 ? [10, 40, 10] : 10)
-      if (!sounded.current) playSound(soundFor(rating))
+      outcomes.current.push({ note: n.id, dir: current.dir, know })
+      setRound((r) => ({ ...r, done: r.done + 1 }))
+      setStats((x) => ({ done: x.done + 1, know: x.know + (know ? 1 : 0), ms: x.ms + Math.min(ms, 120000) }))
+      haptic(know ? 10 : [10, 40, 10])
+      if (!sounded.current) playSound(know ? 'ok' : 'bad')
       sounded.current = false
 
       // Первая карточка за день продлевает серию — коротко празднуем
@@ -172,13 +174,26 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
       setRevealed(false)
       setInput('')
       setUnknown(false)
-      setCurrent(takeNext(session))
+      setCurrent(session.queue.shift() || null)
       shownAt.current = Date.now()
     },
     [current, revealed, session],
   )
 
-  // Клавиатура: пробел/Enter — показать ответ, 1–4 — оценка
+  // Следующий круг — только те, что не знал в этом кругу
+  const nextRound = useCallback(() => {
+    const missed = shuffle(outcomes.current.filter((o) => !o.know).map((o) => ({ note: o.note, dir: o.dir })))
+    if (!missed.length) return
+    const total = missed.length // до shift(): обновление состояния выполняется позже и увидело бы уже сокращённый список
+    session.queue = missed
+    outcomes.current = []
+    setRound((r) => ({ n: r.n + 1, total, done: 0 }))
+    setExitKind({ type: 'next', rating: 3 })
+    setCurrent(session.queue.shift())
+    shownAt.current = Date.now()
+  }, [session])
+
+  // Клавиатура: пробел/Enter — показать ответ; ← или 1 — не знаю, → или 2 — знаю
   useEffect(() => {
     function on(e) {
       if (editing) return
@@ -191,30 +206,43 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
         return
       }
       if (typing) return
-      const r = RATINGS.find((x) => x.key === e.key)
-      if (r) grade(r.r)
+      if (e.key === 'ArrowLeft' || e.key === '1') respond(false)
+      else if ((e.key === 'ArrowRight' || e.key === '2') && !unknown) respond(true)
       else if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault()
-        grade(suggested || Rating.Good)
+        if (unknown) respond(false)
+        else if (suggested !== null) respond(suggested)
       }
     }
     window.addEventListener('keydown', on)
     return () => window.removeEventListener('keydown', on)
-  }, [revealed, reveal, grade, suggested, editing])
+  }, [revealed, reveal, respond, suggested, unknown, editing])
 
   // Карточку удалили (здесь или на другом устройстве) — просто идём дальше
   useEffect(() => {
-    if (current && (!note || note.deleted)) setCurrent(takeNext(session))
+    if (current && (!note || note.deleted)) setCurrent(session.queue.shift() || null)
   }, [current, note, session])
 
-  const done = stats.done
-  const left = (current ? 1 : 0) + session.queue.length + session.later.length
-  const progress = done / Math.max(1, done + left)
+  const progress = round.total ? round.done / round.total : 0
 
-  if (!current) return <Finished stats={stats} startedAt={startedAt.current} empty={session.total === 0} />
+  if (!current)
+    return (
+      <Finished
+        stats={stats}
+        startedAt={startedAt.current}
+        empty={session.total === 0}
+        outcomes={outcomes.current}
+        notes={notes}
+        round={round}
+        onRepeat={nextRound}
+      />
+    )
   if (!note || note.deleted) return null
 
   const accent = section ? gradient(section.color, 90) : undefined
+  const swipe = unknown
+    ? { left: { icon: 'close', label: 'Не знаю', sub: 'в кучку «Не знаю»' } }
+    : { left: { icon: 'close', label: 'Не знаю', sub: 'в кучку «Не знаю»' }, right: { icon: 'check', label: 'Знаю', sub: 'в кучку «Знаю»' } }
 
   return (
     <div className="study app">
@@ -225,8 +253,9 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
         <div className="study-progress">
           <motion.i style={{ background: accent }} initial={{ width: '3%' }} animate={{ width: `${Math.max(3, progress * 100)}%` }} transition={soft} />
         </div>
+        {round.n > 1 && <span className="chip accent">круг {round.n}</span>}
         <span className="small faint tnum" style={{ minWidth: 44, textAlign: 'right', fontWeight: 600 }}>
-          {done}/{done + left}
+          {round.done}/{round.total}
         </span>
       </div>
 
@@ -236,22 +265,15 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
             key={`${current.note}-${current.dir}-${revealed ? 'b' : 'f'}`}
             exitKind={exitKind}
             accent={accent}
+            swipe={swipe}
             onSwipe={
               revealed
-                ? (r) => {
+                ? (know) => {
                     localStorage.setItem('mq-swiped', '1')
                     setSwipeHint(false)
-                    grade(r)
+                    respond(know)
                   }
                 : null
-            }
-            tall={tall}
-            swipe={
-              intervals && {
-                left: { icon: 'close', label: 'Не знаю', sub: `покажу через ${fmtInterval(intervals[Rating.Again])}` },
-                right: { icon: 'clock', label: 'Повторить позже', sub: `через ${fmtInterval(intervals[Rating.Good])}` },
-                up: { icon: 'check', label: 'Выучил', sub: `теперь через ${fmtInterval(intervals[Rating.Easy])}` },
-              }
             }
           >
             <div className="kicker">
@@ -266,18 +288,9 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
             </div>
 
             {!revealed ? (
-              <Front
-                vocab={vocab}
-                dir={dir}
-                note={note}
-                question={question}
-                english={english}
-                input={input}
-                setInput={setInput}
-                onSubmit={reveal}
-              />
+              <Front vocab={vocab} dir={dir} note={note} question={question} english={english} input={input} setInput={setInput} onSubmit={reveal} />
             ) : (
-              <Back vocab={vocab} dir={dir} note={note} question={question} answer={answer} english={english} input={input} verdict={verdict} unknown={unknown} />
+              <Back vocab={vocab} note={note} question={question} answer={answer} english={english} input={input} verdict={verdict} unknown={unknown} />
             )}
           </CardFace>
         </AnimatePresence>
@@ -299,31 +312,43 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
                 {vocab ? 'Напиши перевод — после проверки увидишь свой ответ рядом с правильным' : 'Ответь своими словами — после проверки сверишь с эталоном'}
               </div>
             </motion.div>
+          ) : unknown ? (
+            <motion.div key="next" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ duration: 0.18 }}>
+              <button className="btn block yn no solid" onClick={() => respond(false)}>
+                Запомнил, дальше →
+              </button>
+              <div className="small faint" style={{ textAlign: 'center', marginTop: 8 }}>
+                Карточка попадёт в кучку «Не знаю» — её можно будет пройти ещё раз
+              </div>
+            </motion.div>
           ) : (
-            <motion.div key="rate" initial="h" animate="s" exit={{ opacity: 0, y: 10, transition: { duration: 0.12 } }} variants={{ s: { transition: { staggerChildren: 0.035 } } }}>
+            <motion.div key="rate" initial="h" animate="s" exit={{ opacity: 0, y: 10, transition: { duration: 0.12 } }} variants={{ s: { transition: { staggerChildren: 0.05 } } }}>
               {swipeHint && (
                 <div className="swipe-hint">
                   <div>
                     <span>← Не знаю</span>
-                    {!tall && <span className="up">↑ Выучил</span>}
-                    <span>Позже →</span>
+                    <span>Знаю →</span>
                   </div>
-                  <i>{tall ? 'ответ длинный — оцени кнопками ниже' : 'свайп только ставит оценку — ничего не удаляется'}</i>
+                  <i>свайп только ставит ответ — ничего не удаляется</i>
                 </div>
               )}
-              <div className="rate">
-              {RATINGS.map((x) => (
+              <div className="yn-row">
                 <motion.button
-                  key={x.r}
-                  className={`r${x.r} ${suggested === x.r ? 'suggest' : ''}`}
-                  onClick={() => grade(x.r)}
+                  className={`yn no ${suggested === false ? 'suggest' : ''}`}
+                  onClick={() => respond(false)}
                   variants={{ h: { opacity: 0, y: 14 }, s: { opacity: 1, y: 0, transition: spring } }}
-                  whileTap={{ scale: 0.92 }}
+                  whileTap={{ scale: 0.94 }}
                 >
-                  {x.label}
-                  <small>{intervals ? fmtInterval(intervals[x.r]) : ''}</small>
+                  <Icon name="close" size={20} stroke={2.8} /> Не знаю
                 </motion.button>
-              ))}
+                <motion.button
+                  className={`yn yes ${suggested === true ? 'suggest' : ''}`}
+                  onClick={() => respond(true)}
+                  variants={{ h: { opacity: 0, y: 14 }, s: { opacity: 1, y: 0, transition: spring } }}
+                  whileTap={{ scale: 0.94 }}
+                >
+                  <Icon name="check" size={20} stroke={2.8} /> Знаю
+                </motion.button>
               </div>
             </motion.div>
           )}
@@ -336,67 +361,27 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
   )
 }
 
-function takeNext(session) {
-  const now = Date.now()
-  if (session.later.length && session.later[0].due <= now) return session.later.shift()
-  if (session.queue.length) return session.queue.shift()
-  if (session.later.length) return session.later.shift()
-  return null
-}
-
 const faceVariants = {
   enter: (k) => (k.type === 'flip' ? { rotateY: -90, opacity: 1, x: 0, scale: 1 } : { opacity: 0, x: 0, y: 24, scale: 0.94, rotateY: 0 }),
   center: { rotateY: 0, opacity: 1, x: 0, y: 0, scale: 1, rotate: 0 },
   exit: (k) =>
     k.type === 'flip'
       ? { rotateY: 90, transition: { duration: 0.16, ease: 'easeIn' } }
-      : k.rating === 4
-        ? { opacity: 0, y: -190, scale: 0.94, transition: { duration: 0.28, ease: [0.4, 0, 1, 1] } }
-        : { opacity: 0, x: k.rating === 1 ? -140 : 140, rotate: k.rating === 1 ? -6 : 6, scale: 0.96, transition: { duration: 0.26, ease: [0.4, 0, 1, 1] } },
+      : { opacity: 0, x: k.rating === 1 ? -140 : 140, rotate: k.rating === 1 ? -6 : 6, scale: 0.96, transition: { duration: 0.26, ease: [0.4, 0, 1, 1] } },
 }
 
-// Влезает ли ответ на экран. Если нет — вертикальный жест нужен для прокрутки, и свайп вверх отключается
-function useTall(active, dep) {
-  const [tall, setTall] = useState(false)
-  useEffect(() => {
-    if (!active) {
-      setTall(false)
-      return
-    }
-    // Страница больше не прокручивается — «длинным» считаем ответ, который не влез в саму карточку
-    // (она тогда листается внутри себя, и вертикальный жест нужен ей)
-    const check = () => {
-      const f = document.querySelector('.stage .face')
-      setTall(!!f && f.scrollHeight - f.clientHeight > 4)
-    }
-    const t = setTimeout(check, 450)
-    const face = document.querySelector('.stage .face')
-    const ro = new ResizeObserver(check)
-    if (face) ro.observe(face)
-    return () => {
-      clearTimeout(t)
-      ro.disconnect()
-    }
-  }, [active, dep])
-  return tall
-}
-
-function CardFace({ children, exitKind, accent, onSwipe, swipe, tall = false }) {
+// Карточка: тянется только влево/вправо. Штамп с названием действия проявляется по мере движения
+function CardFace({ children, exitKind, accent, onSwipe, swipe }) {
   const x = useMotionValue(0)
-  const y = useMotionValue(0)
-  const canUp = !!swipe?.up && !tall
-  const blue = useTransform(y, [-140, -20], [0.9, 0])
-  const upOp = useTransform(y, [-120, -25], [1, 0])
-  const upScale = useTransform(y, [-130, -60], [1.06, 0.85])
   const rotate = useTransform(x, [-220, 220], [-7, 7])
   const red = useTransform(x, [-140, -20], [0.9, 0])
   const green = useTransform(x, [20, 140], [0, 0.9])
-  // Штамп с названием действия проявляется по мере движения и «щёлкает» у порога
   const leftOp = useTransform(x, [-120, -25], [1, 0])
   const rightOp = useTransform(x, [25, 120], [0, 1])
   const leftScale = useTransform(x, [-130, -60], [1.06, 0.85])
   const rightScale = useTransform(x, [60, 130], [0.85, 1.06])
   const ref = useRef(null)
+  const canRight = !!swipe?.right
 
   useEffect(() => {
     hydrateMedia(ref.current)
@@ -410,20 +395,15 @@ function CardFace({ children, exitKind, accent, onSwipe, swipe, tall = false }) 
       animate="center"
       exit="exit"
       transition={exitKind.type === 'flip' ? { duration: 0.22, ease: 'easeOut' } : soft}
-      drag={onSwipe ? (canUp ? true : 'x') : false}
-      dragDirectionLock
+      drag={onSwipe ? 'x' : false}
       dragSnapToOrigin
-      dragElastic={0.85}
+      dragElastic={canRight ? 0.85 : { left: 0.85, right: 0.1 }}
       onDragEnd={(_, i) => {
         if (!onSwipe) return
-        const { x: dx, y: dy } = i.offset
-        const { x: vx, y: vy } = i.velocity
-        // Вверх — только если жест заметно вертикальный
-        if (canUp && Math.abs(dy) > Math.abs(dx) && (dy < -110 || vy < -700)) onSwipe(Rating.Easy)
-        else if (dx < -120 || vx < -800) onSwipe(Rating.Again)
-        else if (dx > 120 || vx > 800) onSwipe(Rating.Good)
+        if (i.offset.x < -120 || i.velocity.x < -800) onSwipe(false)
+        else if (canRight && (i.offset.x > 120 || i.velocity.x > 800)) onSwipe(true)
       }}
-      style={{ x, y, rotate, position: 'relative', touchAction: onSwipe ? (canUp ? 'none' : 'pan-y') : 'auto' }}
+      style={{ x, rotate, position: 'relative', touchAction: onSwipe ? 'pan-y' : 'auto' }}
     >
       <div className="face" ref={ref}>
         {accent && <div className="accent-bar" style={{ background: accent }} />}
@@ -432,19 +412,9 @@ function CardFace({ children, exitKind, accent, onSwipe, swipe, tall = false }) 
       {onSwipe && (
         <>
           <motion.div style={{ opacity: red, position: 'absolute', inset: 0, borderRadius: 28, boxShadow: 'inset 0 0 0 3px var(--again)', background: 'color-mix(in srgb, var(--again) 10%, transparent)', pointerEvents: 'none' }} />
-          <motion.div style={{ opacity: green, position: 'absolute', inset: 0, borderRadius: 28, boxShadow: 'inset 0 0 0 3px var(--good)', background: 'color-mix(in srgb, var(--good) 10%, transparent)', pointerEvents: 'none' }} />
-          {canUp && <motion.div style={{ opacity: blue, position: 'absolute', inset: 0, borderRadius: 28, boxShadow: 'inset 0 0 0 3px var(--easy)', background: 'color-mix(in srgb, var(--easy) 10%, transparent)', pointerEvents: 'none' }} />}
+          {canRight && <motion.div style={{ opacity: green, position: 'absolute', inset: 0, borderRadius: 28, boxShadow: 'inset 0 0 0 3px var(--good)', background: 'color-mix(in srgb, var(--good) 10%, transparent)', pointerEvents: 'none' }} />}
           {swipe && (
             <>
-              {canUp && (
-                <motion.div className="swipe-stamp easy" style={{ opacity: upOp, scale: upScale }}>
-                  <Icon name={swipe.up.icon} size={20} stroke={3} />
-                  <div>
-                    <b>{swipe.up.label}</b>
-                    <small>{swipe.up.sub}</small>
-                  </div>
-                </motion.div>
-              )}
               <motion.div className="swipe-stamp again" style={{ opacity: leftOp, scale: leftScale }}>
                 <Icon name={swipe.left.icon} size={20} stroke={3} />
                 <div>
@@ -452,13 +422,15 @@ function CardFace({ children, exitKind, accent, onSwipe, swipe, tall = false }) 
                   <small>{swipe.left.sub}</small>
                 </div>
               </motion.div>
-              <motion.div className="swipe-stamp good" style={{ opacity: rightOp, scale: rightScale }}>
-                <Icon name={swipe.right.icon} size={20} stroke={3} />
-                <div>
-                  <b>{swipe.right.label}</b>
-                  <small>{swipe.right.sub}</small>
-                </div>
-              </motion.div>
+              {canRight && (
+                <motion.div className="swipe-stamp good" style={{ opacity: rightOp, scale: rightScale }}>
+                  <Icon name={swipe.right.icon} size={20} stroke={3} />
+                  <div>
+                    <b>{swipe.right.label}</b>
+                    <small>{swipe.right.sub}</small>
+                  </div>
+                </motion.div>
+              )}
             </>
           )}
         </>
@@ -552,7 +524,7 @@ function MyAnswer({ input, unknown, marks, big, missing }) {
   )
 }
 
-function Back({ vocab, dir, note, question, answer, english, input, verdict, unknown = false, compare = true }) {
+function Back({ vocab, note, question, answer, english, input, verdict, unknown = false, compare = true }) {
   if (vocab) {
     const typed = input.trim()
     // Для подсветки сравниваем ввод с ближайшим вариантом перевода
@@ -641,63 +613,122 @@ function Back({ vocab, dir, note, question, answer, english, input, verdict, unk
   )
 }
 
-function Finished({ stats, startedAt, empty }) {
+// Итог круга: две кучки — «Знаю» и «Не знаю». «Не знаю» можно сразу пройти ещё раз (следующий круг)
+function PileList({ items, notes, tone }) {
+  return (
+    <div className={`card list pile-list ${tone}`} style={{ boxShadow: 'none', textAlign: 'left' }}>
+      {items.slice(0, 40).map((o) => {
+        const n = notes[o.note]
+        if (!n) return null
+        const front = o.dir === 'rev' ? n.back : n.front
+        const back = o.dir === 'rev' ? n.front : n.back
+        return (
+          <div key={`${o.note}${o.dir}`} className="list-item">
+            <i className="dot" style={{ background: tone === 'no' ? 'var(--again)' : 'var(--good)' }} />
+            <div className="main">
+              <div className="t">{stripHtml(front).slice(0, 70)}</div>
+              <div className="s">{stripHtml(back).slice(0, 90)}</div>
+            </div>
+          </div>
+        )
+      })}
+      {items.length > 40 && <div className="list-item faint small">и ещё {items.length - 40}</div>}
+    </div>
+  )
+}
+
+function Finished({ stats, startedAt, empty, outcomes, notes, round, onRepeat }) {
   const reviews = useStore((s) => s.reviews)
   const settings = useStore((s) => s.settings)
   const days = useMemo(() => aggregate(reviews), [reviews])
   const streak = useMemo(() => globalStreak(days, settings), [days, settings])
   const today = days[dayKey()]?.n || 0
-  const acc = stats.done ? stats.correct / stats.done : 0
+  const [showKnown, setShowKnown] = useState(false)
+  const known = outcomes.filter((o) => o.know)
+  const missed = outcomes.filter((o) => !o.know)
+  const pct = outcomes.length ? known.length / outcomes.length : 0
   const minutes = fmtMinutes(Math.max(stats.ms, stats.done ? Date.now() - startedAt : 0))
 
   return (
-    <div className="study app" style={{ justifyContent: 'center', textAlign: 'center' }}>
-      <motion.div initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} transition={soft}>
-        {empty ? (
+    <div className="study app">
+      <div className="finished-scroll">
+        <motion.div style={{ textAlign: 'center' }} initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} transition={soft}>
+          {empty ? (
+            <div style={{ paddingTop: 80 }}>
+              <div style={{ fontSize: 64, marginBottom: 10 }}>🌿</div>
+              <h1 className="title">Пока нечего повторять</h1>
+              <p className="subtitle">Все карточки на сегодня пройдены. Выбери «Погнали» — и пройди любое количество карточек сразу.</p>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'center', margin: '8px 0 14px' }}>
+                <Ring value={pct} size={118} stroke={11} from="#10b981" to="#0ea5e9">
+                  <div>
+                    <b>
+                      <Counter value={known.length} />
+                      <span className="faint" style={{ fontSize: 16 }}>/{outcomes.length}</span>
+                    </b>
+                    <small>знаю</small>
+                  </div>
+                </Ring>
+              </div>
+              <h1 className="title" style={{ fontSize: 28 }}>
+                {missed.length ? 'Круг пройден' : 'Всё знаешь! 🎉'}
+              </h1>
+              <p className="subtitle">
+                {outcomes.length} {plural(outcomes.length, 'карточка', 'карточки', 'карточек')} · {minutes}
+                {round.n > 1 ? ` · круг ${round.n}` : ''}
+              </p>
+
+              <div className="piles">
+                <div className="pile yes">
+                  <b className="tnum">{known.length}</b>
+                  <span>Знаю</span>
+                </div>
+                <div className="pile no">
+                  <b className="tnum">{missed.length}</b>
+                  <span>Не знаю</span>
+                </div>
+              </div>
+
+              {missed.length > 0 && (
+                <>
+                  <div className="mono-label pile-title">Не знаю — вот что повторить</div>
+                  <PileList items={missed} notes={notes} tone="no" />
+                </>
+              )}
+              {known.length > 0 && (
+                <>
+                  <button className="pile-toggle" onClick={() => setShowKnown(!showKnown)}>
+                    {showKnown ? 'Скрыть' : 'Показать'} кучку «Знаю» · {known.length}
+                  </button>
+                  {showKnown && <PileList items={known} notes={notes} tone="yes" />}
+                </>
+              )}
+              <div className="small faint" style={{ margin: '14px 8px 4px', lineHeight: 1.4 }}>
+                <Flame size={13} animated={false} active={streak.current > 0} /> {streak.current} {plural(streak.current, 'день', 'дня', 'дней')} подряд · сегодня {today}.
+                Кучки «Знаю» и «Не знаю» сохраняются — их видно в разделе и на вкладке «Карточки».
+              </div>
+            </>
+          )}
+        </motion.div>
+      </div>
+      <div className="finished-actions">
+        {!empty && missed.length > 0 ? (
           <>
-            <div style={{ fontSize: 64, marginBottom: 10 }}>🌿</div>
-            <h1 className="title">Всё повторено</h1>
-            <p className="subtitle" style={{ marginBottom: 28 }}>
-              Новых и просроченных карточек нет. Возвращайся завтра — или добавь новые.
-            </p>
+            <button className="btn primary block" onClick={onRepeat}>
+              <Icon name="bolt" size={17} /> Повторить «Не знаю» · {missed.length}
+            </button>
+            <button className="btn secondary block" onClick={() => back()}>
+              Закончить
+            </button>
           </>
         ) : (
-          <>
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
-              <Ring value={acc} size={150} stroke={14} from="#10b981" to="#0ea5e9">
-                <div>
-                  <b>
-                    <Counter value={Math.round(acc * 100)} format={(v) => `${Math.round(v)}%`} />
-                  </b>
-                  <small>точность</small>
-                </div>
-              </Ring>
-            </div>
-            <h1 className="title">Сессия завершена</h1>
-            <p className="subtitle">
-              {stats.done} {plural(stats.done, 'карточка', 'карточки', 'карточек')} · {minutes}
-            </p>
-            <div className="card pad row" style={{ margin: '24px 0', justifyContent: 'center', gap: 28 }}>
-              <div>
-                <div className="row" style={{ justifyContent: 'center', gap: 6, fontSize: 26, fontWeight: 760 }}>
-                  <Flame size={26} active={streak.current > 0} />
-                  {streak.current}
-                </div>
-                <div className="small faint">{plural(streak.current, 'день', 'дня', 'дней')} подряд</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 26, fontWeight: 760 }} className="tnum">
-                  {today}
-                </div>
-                <div className="small faint">карточек сегодня</div>
-              </div>
-            </div>
-          </>
+          <button className="btn primary block" onClick={() => back()}>
+            Готово
+          </button>
         )}
-        <button className="btn primary block" onClick={() => back()}>
-          Готово
-        </button>
-      </motion.div>
+      </div>
     </div>
   )
 }
@@ -744,177 +775,5 @@ function Celebrate({ streak, onClose }) {
         </motion.div>
       </div>
     </motion.div>
-  )
-}
-
-// Прогон перед собеседованием: все карточки вперемешку, «знаю / не знаю», расписание FSRS не трогаем
-function Cram({ scope }) {
-  const notes = useStore((s) => s.notes)
-  const decks = useStore((s) => s.decks)
-  const sections = useStore((s) => s.sections)
-  const [state] = useState(() => {
-    const st = getState()
-    const ds = scopeDecks(st.decks, scope)
-    const items = []
-    for (const n of Object.values(st.notes)) {
-      const d = ds.find((x) => x.id === n.deck_id)
-      if (!d || n.deleted || n.suspended) continue
-      items.push({ note: n.id, dir: d.kind === 'vocab' && Math.random() < 0.5 ? 'rev' : 'fwd', tries: 0 })
-    }
-    for (let i = items.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
-      ;[items[i], items[j]] = [items[j], items[i]]
-    }
-    return { queue: items, total: items.length, missed: new Set() }
-  })
-  const [current, setCurrent] = useState(() => state.queue[0] || null)
-  const [revealed, setRevealed] = useState(false)
-  const [exitKind, setExitKind] = useState({ type: 'next', rating: 3 })
-  const [known, setKnown] = useState(0)
-
-  const answer = useCallback(
-    (ok) => {
-      state.queue.shift()
-      if (ok) setKnown((k) => k + 1)
-      else {
-        state.missed.add(current.note)
-        // Не знаю — вернётся ближе к концу, но не больше двух раз
-        if (current.tries < 2) state.queue.splice(Math.min(state.queue.length, 4 + Math.floor(Math.random() * 4)), 0, { ...current, tries: current.tries + 1 })
-      }
-      haptic(ok ? 10 : [10, 40, 10])
-      playSound(ok ? 'ok' : 'bad')
-      setExitKind({ type: 'next', rating: ok ? 3 : 1 })
-      setRevealed(false)
-      setCurrent(state.queue[0] || null)
-    },
-    [current, state],
-  )
-
-  useEffect(() => {
-    function on(e) {
-      if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return
-      if (!revealed && (e.key === ' ' || e.key === 'Enter')) {
-        e.preventDefault()
-        setExitKind({ type: 'flip' })
-        setRevealed(true)
-      } else if (revealed && (e.key === '1' || e.key === 'ArrowLeft')) answer(false)
-      else if (revealed && (e.key === '2' || e.key === 'ArrowRight' || e.key === ' ')) answer(true)
-    }
-    window.addEventListener('keydown', on)
-    return () => window.removeEventListener('keydown', on)
-  }, [revealed, answer])
-
-  if (!current) {
-    const missed = [...state.missed].map((id) => notes[id]).filter(Boolean)
-    const pct = state.total ? Math.round(((state.total - missed.length) / state.total) * 100) : 0
-    return (
-      <div className="study app">
-        <motion.div style={{ margin: 'auto 0', textAlign: 'center' }} initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} transition={soft}>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-            <Ring value={pct / 100} size={140} stroke={13} from="#f4c34a" to="#f39a4c">
-              <div>
-                <b>{pct}%</b>
-                <small>с первого раза</small>
-              </div>
-            </Ring>
-          </div>
-          <h1 className="title">Прогон завершён</h1>
-          <p className="subtitle">
-            {state.total} {plural(state.total, 'карточка', 'карточки', 'карточек')} · {missed.length ? `подтянуть ${missed.length}` : 'всё знаешь'}
-          </p>
-        </motion.div>
-        {missed.length > 0 && (
-          <div className="card list" style={{ margin: '20px 0', textAlign: 'left' }}>
-            {missed.slice(0, 12).map((n) => (
-              <div key={n.id} className="list-item">
-                <div className="main">
-                  <div className="t">{stripHtml(n.front).slice(0, 80)}</div>
-                  <div className="s">{stripHtml(n.back).slice(0, 100)}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        <button className="btn primary block" style={{ marginTop: 'auto' }} onClick={() => back()}>
-          Готово
-        </button>
-      </div>
-    )
-  }
-
-  const note = notes[current.note]
-  if (!note) return null
-  const deck = decks[note.deck_id]
-  const section = deck ? sections[deck.section_id] : null
-  const vocab = deck?.kind === 'vocab'
-  const question = current.dir === 'rev' ? note.back : note.front
-  const ans = current.dir === 'rev' ? note.front : note.back
-  const done = state.total - state.queue.length
-  const accent = 'linear-gradient(90deg, #f4c34a, #f39a4c)'
-
-  return (
-    <div className="study app">
-      <div className="row" style={{ gap: 12 }}>
-        <button className="icon-btn ghost" onClick={() => back()} aria-label="Закончить">
-          <Icon name="close" />
-        </button>
-        <div className="study-progress">
-          <motion.i style={{ background: accent }} animate={{ width: `${Math.max(3, (done / Math.max(1, state.total + state.missed.size)) * 100)}%` }} transition={soft} />
-        </div>
-        <span className="chip" style={{ color: '#f39a4c' }}>
-          <Icon name="bolt" size={13} /> прогон
-        </span>
-      </div>
-      <div className="stage">
-        <AnimatePresence mode="wait" custom={exitKind} initial={false}>
-          <CardFace key={`${current.note}-${current.tries}-${revealed ? 'b' : 'f'}`} exitKind={exitKind} accent={accent}
-            onSwipe={revealed ? (r) => answer(r > 1) : null}
-            swipe={{
-              left: { icon: 'close', label: 'Не знаю', sub: 'вернётся позже', tone: 'again' },
-              right: { icon: 'check', label: 'Знаю', sub: 'идём дальше', tone: 'good' },
-            }}
-          >
-            <div className="kicker">
-              <span>{section?.emoji}</span>
-              <span>{deck?.name}</span>
-              <span className="spacer" />
-              <span className="chip">знаю {known}</span>
-            </div>
-            {!revealed ? (
-              <div className={`q-text ${vocab ? 'word' : ''}`}>
-                <Content text={question} format={note.format} className={vocab ? '' : 'content'} />
-              </div>
-            ) : (
-              <Back vocab={vocab} dir={current.dir} note={note} question={question} answer={ans} english={englishSide(note.front, note.back)} input="" verdict={null} compare={false} />
-            )}
-          </CardFace>
-        </AnimatePresence>
-      </div>
-      <div className="study-actions">
-        {!revealed ? (
-          <button
-            className="btn block"
-            style={{ background: accent, color: '#fff' }}
-            onClick={() => {
-              setExitKind({ type: 'flip' })
-              setRevealed(true)
-            }}
-          >
-            Показать ответ
-          </button>
-        ) : (
-          <div className="rate" style={{ gridTemplateColumns: '1fr 1fr' }}>
-            <motion.button className="r1" whileTap={{ scale: 0.92 }} onClick={() => answer(false)}>
-              Не знаю
-              <small>вернётся позже</small>
-            </motion.button>
-            <motion.button className="r3" whileTap={{ scale: 0.92 }} onClick={() => answer(true)}>
-              Знаю
-              <small>дальше</small>
-            </motion.button>
-          </div>
-        )}
-      </div>
-    </div>
   )
 }
