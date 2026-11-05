@@ -3,7 +3,7 @@ import { AnimatePresence, motion, useMotionValue, useTransform } from 'framer-mo
 import { getState, patch, upsert, uid, useStore } from '../lib/store'
 import { buildQueue, randomQueue, scopeDecks, LEARN_AHEAD_MS } from '../lib/queue'
 import { gradeNote, previewIntervals, fmtInterval, Rating } from '../lib/srs'
-import { checkVocab, keywordCoverage, stripHtml } from '../lib/check'
+import { checkVocab, keywordCoverage, stripHtml, diffMarks } from '../lib/check'
 import { renderContent } from '../lib/render'
 import { hydrateMedia } from '../lib/media'
 import { speak, canSpeak, englishSide } from '../lib/tts'
@@ -67,6 +67,8 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
   const [current, setCurrent] = useState(session.first)
   const [revealed, setRevealed] = useState(false)
   const [input, setInput] = useState('')
+  const [unknown, setUnknown] = useState(false) // нажал «Не знаю» — ответ раскрыт без проверки
+  const [swipeHint, setSwipeHint] = useState(() => !localStorage.getItem('mq-swiped'))
   const [exitKind, setExitKind] = useState({ type: 'next', rating: 3 })
   const [stats, setStats] = useState({ done: 0, correct: 0, ms: 0 })
   const [celebrate, setCelebrate] = useState(null)
@@ -91,10 +93,11 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
   }, [revealed, note, input, vocab, answer])
 
   const suggested = useMemo(() => {
+    if (unknown) return Rating.Again
     if (!verdict) return null
     if (verdict.kind === 'vocab') return verdict.verdict === 'exact' ? Rating.Good : verdict.verdict === 'close' ? Rating.Hard : Rating.Again
     return verdict.ratio >= 0.7 ? Rating.Good : verdict.ratio >= 0.4 ? Rating.Hard : Rating.Again
-  }, [verdict])
+  }, [verdict, unknown])
 
   const intervals = useMemo(() => (note && revealed ? previewIntervals(note, dir, settings.retention) : null), [note, dir, revealed, settings.retention])
 
@@ -105,12 +108,16 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
     if (showsEnglish) speak(english)
   }, [vocab, settings.autoSpeak, english, note?.id, dir, revealed]) // eslint-disable-line
 
-  const reveal = useCallback(() => {
-    if (!current || revealed) return
-    setExitKind({ type: 'flip' })
-    setRevealed(true)
-    haptic(6)
-  }, [current, revealed])
+  const reveal = useCallback(
+    (dontKnow = false) => {
+      if (!current || revealed) return
+      setExitKind({ type: 'flip' })
+      setUnknown(dontKnow === true)
+      setRevealed(true)
+      haptic(6)
+    },
+    [current, revealed],
+  )
 
   const grade = useCallback(
     (rating) => {
@@ -149,6 +156,7 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
       setExitKind({ type: 'next', rating })
       setRevealed(false)
       setInput('')
+      setUnknown(false)
       setCurrent(takeNext(session))
       shownAt.current = Date.now()
     },
@@ -213,7 +221,21 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
             key={`${current.note}-${current.dir}-${revealed ? 'b' : 'f'}`}
             exitKind={exitKind}
             accent={accent}
-            onSwipe={revealed ? (r) => grade(r) : null}
+            onSwipe={
+              revealed
+                ? (r) => {
+                    localStorage.setItem('mq-swiped', '1')
+                    setSwipeHint(false)
+                    grade(r)
+                  }
+                : null
+            }
+            swipe={
+              intervals && {
+                left: { icon: 'close', label: 'Снова', sub: `через ${fmtInterval(intervals[Rating.Again])}`, tone: 'again' },
+                right: { icon: 'check', label: 'Хорошо', sub: `через ${fmtInterval(intervals[Rating.Good])}`, tone: 'good' },
+              }
+            }
           >
             <div className="kicker">
               <span>{section?.emoji}</span>
@@ -238,7 +260,7 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
                 onSubmit={reveal}
               />
             ) : (
-              <Back vocab={vocab} dir={dir} note={note} question={question} answer={answer} english={english} input={input} verdict={verdict} />
+              <Back vocab={vocab} dir={dir} note={note} question={question} answer={answer} english={english} input={input} verdict={verdict} unknown={unknown} />
             )}
           </CardFace>
         </AnimatePresence>
@@ -248,15 +270,30 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
         <AnimatePresence mode="wait" initial={false}>
           {!revealed ? (
             <motion.div key="show" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ duration: 0.18 }}>
-              <button className="btn primary block" onClick={reveal} style={accent ? { background: accent } : undefined}>
-                {input.trim() ? 'Проверить' : 'Показать ответ'}
-              </button>
+              <div className="row" style={{ gap: 10 }}>
+                <button className="btn secondary dk-btn" onClick={() => reveal(true)}>
+                  Не знаю
+                </button>
+                <button className="btn primary" style={{ flex: 1, ...(accent ? { background: accent } : {}) }} onClick={() => reveal()}>
+                  {input.trim() ? 'Проверить' : 'Показать ответ'}
+                </button>
+              </div>
               <div className="small faint" style={{ textAlign: 'center', marginTop: 8 }}>
-                {vocab ? 'Напиши перевод или просто вспомни' : 'Ответь своими словами или просто проговори в голове'}
+                {vocab ? 'Напиши перевод — после проверки увидишь свой ответ рядом с правильным' : 'Ответь своими словами — после проверки сверишь с эталоном'}
               </div>
             </motion.div>
           ) : (
-            <motion.div key="rate" className="rate" initial="h" animate="s" exit={{ opacity: 0, y: 10, transition: { duration: 0.12 } }} variants={{ s: { transition: { staggerChildren: 0.035 } } }}>
+            <motion.div key="rate" initial="h" animate="s" exit={{ opacity: 0, y: 10, transition: { duration: 0.12 } }} variants={{ s: { transition: { staggerChildren: 0.035 } } }}>
+              {swipeHint && (
+                <div className="swipe-hint">
+                  <div>
+                    <span>← Снова</span>
+                    <span>Хорошо →</span>
+                  </div>
+                  <i>свайп только ставит оценку — ничего не удаляется</i>
+                </div>
+              )}
+              <div className="rate">
               {RATINGS.map((x) => (
                 <motion.button
                   key={x.r}
@@ -269,6 +306,7 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
                   <small>{intervals ? fmtInterval(intervals[x.r]) : ''}</small>
                 </motion.button>
               ))}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -297,11 +335,16 @@ const faceVariants = {
       : { opacity: 0, x: k.rating === 1 ? -140 : 140, rotate: k.rating === 1 ? -6 : 6, scale: 0.96, transition: { duration: 0.26, ease: [0.4, 0, 1, 1] } },
 }
 
-function CardFace({ children, exitKind, accent, onSwipe }) {
+function CardFace({ children, exitKind, accent, onSwipe, swipe }) {
   const x = useMotionValue(0)
   const rotate = useTransform(x, [-220, 220], [-7, 7])
   const red = useTransform(x, [-140, -20], [0.9, 0])
   const green = useTransform(x, [20, 140], [0, 0.9])
+  // Штамп с названием действия проявляется по мере движения и «щёлкает» у порога
+  const leftOp = useTransform(x, [-120, -25], [1, 0])
+  const rightOp = useTransform(x, [25, 120], [0, 1])
+  const leftScale = useTransform(x, [-130, -60], [1.06, 0.85])
+  const rightScale = useTransform(x, [60, 130], [0.85, 1.06])
   const ref = useRef(null)
 
   useEffect(() => {
@@ -332,8 +375,26 @@ function CardFace({ children, exitKind, accent, onSwipe }) {
       </div>
       {onSwipe && (
         <>
-          <motion.div style={{ opacity: red, position: 'absolute', inset: 0, borderRadius: 28, boxShadow: 'inset 0 0 0 3px var(--again)', pointerEvents: 'none' }} />
-          <motion.div style={{ opacity: green, position: 'absolute', inset: 0, borderRadius: 28, boxShadow: 'inset 0 0 0 3px var(--good)', pointerEvents: 'none' }} />
+          <motion.div style={{ opacity: red, position: 'absolute', inset: 0, borderRadius: 28, boxShadow: 'inset 0 0 0 3px var(--again)', background: 'color-mix(in srgb, var(--again) 10%, transparent)', pointerEvents: 'none' }} />
+          <motion.div style={{ opacity: green, position: 'absolute', inset: 0, borderRadius: 28, boxShadow: 'inset 0 0 0 3px var(--good)', background: 'color-mix(in srgb, var(--good) 10%, transparent)', pointerEvents: 'none' }} />
+          {swipe && (
+            <>
+              <motion.div className="swipe-stamp again" style={{ opacity: leftOp, scale: leftScale }}>
+                <Icon name={swipe.left.icon} size={20} stroke={3} />
+                <div>
+                  <b>{swipe.left.label}</b>
+                  <small>{swipe.left.sub}</small>
+                </div>
+              </motion.div>
+              <motion.div className="swipe-stamp good" style={{ opacity: rightOp, scale: rightScale }}>
+                <Icon name={swipe.right.icon} size={20} stroke={3} />
+                <div>
+                  <b>{swipe.right.label}</b>
+                  <small>{swipe.right.sub}</small>
+                </div>
+              </motion.div>
+            </>
+          )}
         </>
       )}
     </motion.div>
@@ -407,20 +468,50 @@ function Front({ vocab, dir, note, question, english, input, setInput, onSubmit 
   )
 }
 
-function Back({ vocab, dir, note, question, answer, english, input, verdict }) {
+// «Твой ответ»: показывается всегда — введённый текст (с подсветкой несовпавших букв для слов)
+// либо пометка, что ответа не было. Так можно сверить своё с правильным, а не только прочитать эталон
+function MyAnswer({ input, unknown, marks, big, missing }) {
+  const typed = input.trim()
+  return (
+    <div className={`mine ${typed ? '' : 'none'}`}>
+      <div className="mine-label">{unknown && !typed ? 'ТЫ ОТМЕТИЛ' : 'ТВОЙ ОТВЕТ'}</div>
+      {typed ? (
+        <div className={`mine-text ${big ? 'big' : ''}`}>
+          {marks ? marks.map((m, i) => (m.ok ? <span key={i}>{m.ch}</span> : <span key={i} className="bad">{m.ch}</span>)) : input}
+        </div>
+      ) : (
+        <div className="mine-text faintly">{unknown ? '«Не знаю»' : 'Ответ не вводился'}</div>
+      )}
+      {missing && <div className="mine-missing">не хватило: {missing}</div>}
+    </div>
+  )
+}
+
+function Back({ vocab, dir, note, question, answer, english, input, verdict, unknown = false, compare = true }) {
   if (vocab) {
+    const typed = input.trim()
+    // Для подсветки сравниваем ввод с ближайшим вариантом перевода
+    const marks = typed && verdict?.best ? diffMarks(typed, verdict.best) : null
+    // Буквы правильного слова, которых нет в моём ответе (пропустил букву — это видно лучше, чем красные буквы)
+    const missingChars = typed && verdict?.best && verdict.verdict !== 'exact' ? diffMarks(verdict.best, typed).filter((m) => !m.ok && m.ch.trim()).map((m) => m.ch) : []
+    const missing = missingChars.length && missingChars.length <= 4 ? missingChars.map((c) => `«${c}»`).join(' ') : null
+    const status = unknown && !typed ? null : verdict
     return (
       <div style={{ textAlign: 'center' }}>
-        {verdict && (
-          <motion.div className={`verdict ${verdict.verdict}`} initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={spring} style={{ justifyContent: 'center' }}>
-            <Icon name={verdict.verdict === 'wrong' ? 'close' : 'check'} size={18} stroke={2.6} />
-            {verdict.verdict === 'exact' ? 'Верно!' : verdict.verdict === 'close' ? 'Почти — опечатка' : `Твой ответ: ${input}`}
+        {status && (
+          <motion.div className={`verdict ${status.verdict}`} initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={spring} style={{ justifyContent: 'center' }}>
+            <Icon name={status.verdict === 'wrong' ? 'close' : 'check'} size={18} stroke={2.6} />
+            {status.verdict === 'exact' ? 'Верно!' : status.verdict === 'close' ? 'Почти — опечатка' : 'Не совпало'}
           </motion.div>
         )}
         <div className="faint" style={{ fontSize: 16 }}>
           <Content text={question} format={note.format} className="" />
         </div>
-        <div className="q-text word" style={{ minHeight: 0, margin: '6px 0 4px' }}>
+        {compare && <MyAnswer input={input} unknown={unknown} marks={marks} big missing={missing} />}
+        <div className="mine-label" style={{ marginTop: compare ? 12 : 4 }}>
+          {compare ? 'ПРАВИЛЬНО' : ''}
+        </div>
+        <div className="q-text word" style={{ minHeight: 0, margin: '2px 0 4px' }}>
           <Content text={answer} format={note.format} className="" />
         </div>
         {note.extra?.transcription && <div className="meta-line">{stripHtml(note.extra.transcription)}</div>}
@@ -441,36 +532,38 @@ function Back({ vocab, dir, note, question, answer, english, input, verdict }) {
       </div>
     )
   }
+  const typed = input.trim()
   return (
     <>
       <div className="muted" style={{ fontWeight: 650, marginBottom: 12, fontSize: 15 }}>
         <Content text={question} format={note.format} />
       </div>
-      {input.trim() && (
+      {compare && (
         <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={soft}>
-          <div className="small faint" style={{ fontWeight: 650, marginBottom: 6 }}>
-            ТВОЙ ОТВЕТ {verdict && `· покрыто ${Math.round(verdict.ratio * 100)}% ключевых слов`}
-          </div>
-          <div className="your-answer">
-            {input}
-            {verdict && (verdict.hits.length + verdict.misses.length > 0) && (
-              <div className="kw">
-                {verdict.hits.map((w) => (
-                  <span key={w} className="hit">
-                    {w}
-                  </span>
-                ))}
-                {verdict.misses.map((w) => (
-                  <span key={w} className="miss">
-                    {w}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
+          <MyAnswer input={input} unknown={unknown} />
+          {typed && verdict && (
+            <div className="coverage">
+              <span>Совпало ключевых слов: {Math.round(verdict.ratio * 100)}%</span>
+              {verdict.hits.length + verdict.misses.length > 0 && (
+                <div className="kw">
+                  {verdict.hits.map((w) => (
+                    <span key={w} className="hit">
+                      {w}
+                    </span>
+                  ))}
+                  {verdict.misses.map((w) => (
+                    <span key={w} className="miss">
+                      {w}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {verdict.misses.length > 0 && <small>Зачёркнутые слова из эталона ты не упомянул</small>}
+            </div>
+          )}
         </motion.div>
       )}
-      <div className="small faint" style={{ fontWeight: 650, marginBottom: 8 }}>
+      <div className="mine-label" style={{ margin: '14px 0 8px' }}>
         ЭТАЛОН
       </div>
       <Content text={answer} format={note.format} />
@@ -708,7 +801,13 @@ function Cram({ scope }) {
       </div>
       <div className="stage">
         <AnimatePresence mode="wait" custom={exitKind} initial={false}>
-          <CardFace key={`${current.note}-${current.tries}-${revealed ? 'b' : 'f'}`} exitKind={exitKind} accent={accent} onSwipe={revealed ? (r) => answer(r > 1) : null}>
+          <CardFace key={`${current.note}-${current.tries}-${revealed ? 'b' : 'f'}`} exitKind={exitKind} accent={accent}
+            onSwipe={revealed ? (r) => answer(r > 1) : null}
+            swipe={{
+              left: { icon: 'close', label: 'Не знаю', sub: 'вернётся позже', tone: 'again' },
+              right: { icon: 'check', label: 'Знаю', sub: 'идём дальше', tone: 'good' },
+            }}
+          >
             <div className="kicker">
               <span>{section?.emoji}</span>
               <span>{deck?.name}</span>
@@ -720,7 +819,7 @@ function Cram({ scope }) {
                 <Content text={question} format={note.format} className={vocab ? '' : 'content'} />
               </div>
             ) : (
-              <Back vocab={vocab} dir={current.dir} note={note} question={question} answer={ans} english={englishSide(note.front, note.back)} input="" verdict={null} />
+              <Back vocab={vocab} dir={current.dir} note={note} question={question} answer={ans} english={englishSide(note.front, note.back)} input="" verdict={null} compare={false} />
             )}
           </CardFace>
         </AnimatePresence>

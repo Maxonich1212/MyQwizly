@@ -3922,3 +3922,179 @@ body,
 .mini-cal-wrap .cal-head .small {
   font-size: 11.5px;
 }
+
+/* ═══ Сверка ответа: «твой ответ» рядом с правильным ═══ */
+.mine {
+  margin: 14px 0 0;
+  padding: 11px 14px 12px;
+  border-radius: 16px;
+  text-align: left;
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface-2));
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.mine.none {
+  background: var(--surface-2);
+  border: 1px dashed var(--line-2);
+}
+
+.mine-label {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--text-3);
+}
+
+.mine-text {
+  margin-top: 4px;
+  font-size: 16px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.mine-text.big {
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.mine-text.faintly {
+  color: var(--text-3);
+  font-weight: 600;
+}
+
+/* Несовпавшие буквы моего ответа */
+.mine-text .bad {
+  color: var(--again);
+  text-decoration: underline wavy color-mix(in srgb, var(--again) 70%, transparent);
+  text-underline-offset: 4px;
+}
+
+.coverage {
+  margin: 8px 2px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.coverage small {
+  display: block;
+  margin-top: 6px;
+  font-weight: 500;
+  color: var(--text-3);
+}
+
+/* «Не знаю» рядом с «Показать ответ» */
+.dk-btn {
+  padding: 0 18px;
+}
+
+/* ═══ Свайп: подписанные штампы и подсказка ═══ */
+.swipe-stamp {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  margin-left: -78px;
+  width: 156px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px 9px 12px;
+  border-radius: 99px;
+  color: #fff;
+  pointer-events: none;
+  z-index: 3;
+  box-shadow: 0 10px 26px -10px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.swipe-stamp.again {
+  background: color-mix(in srgb, var(--again) 92%, #000);
+}
+
+.swipe-stamp.good {
+  background: color-mix(in srgb, var(--good) 92%, #000);
+}
+
+.swipe-stamp b {
+  display: block;
+  font-size: 15px;
+  line-height: 1.1;
+}
+
+.swipe-stamp small {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 600;
+  opacity: 0.85;
+  margin-top: 1px;
+}
+
+.swipe-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.swipe-hint span:first-child {
+  color: var(--again);
+  flex-shrink: 0;
+}
+
+.swipe-hint span:last-child {
+  color: var(--good);
+  flex-shrink: 0;
+}
+
+.swipe-hint i {
+  font-style: normal;
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--text-3);
+  text-align: center;
+  line-height: 1.25;
+}
+
+.mine-missing {
+  margin-top: 6px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--hard);
+}
+
+.swipe-hint {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.swipe-hint > div {
+  display: flex;
+  justify-content: space-between;
+}
+
+.swipe-hint i {
+  display: block;
+  text-align: center;
+}
+
+/* Штамп держится у противоположного края карточки, чтобы не уезжать за экран вместе с ней */
+.swipe-stamp {
+  width: auto;
+  min-width: 132px;
+  margin-left: 0;
+  left: 14px;
+}
+
+.swipe-stamp.again {
+  left: auto;
+  right: 14px;
+}

@@ -60,6 +60,30 @@ export function checkVocab(input, answer) {
   return { verdict, best: best.text, score: best.score }
 }
 
+// Какие символы введённого ответа есть в правильном (наибольшая общая подпоследовательность).
+// Возвращает массив {ch, ok} по символам ввода — несовпавшие потом подсвечиваем красным
+export function diffMarks(user, correct) {
+  const a = [...user]
+  const b = [...correct.toLowerCase()]
+  const m = a.length
+  const n = b.length
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0))
+  for (let i = m - 1; i >= 0; i--)
+    for (let j = n - 1; j >= 0; j--) dp[i][j] = a[i].toLowerCase() === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1])
+  const out = a.map((ch) => ({ ch, ok: false }))
+  let i = 0
+  let j = 0
+  while (i < m && j < n) {
+    if (a[i].toLowerCase() === b[j]) {
+      out[i].ok = true
+      i++
+      j++
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) i++
+    else j++
+  }
+  return out
+}
+
 const STOP = new Set(
   `это этот эта эти того тому того чтобы когда тогда если также более менее очень можно нужно который которая которые которого
   который потому поэтому только через после перед между всегда всего везде здесь там где как так для при без над под или либо
