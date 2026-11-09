@@ -47,7 +47,7 @@ export default function HabitDetail({ id }) {
           </div>
           <LiquidCheck progress={progressOf(h, logs[today])} color={h.color} onTap={() => tap(today)} size={58} label={h.tracking !== 'check' && h.kind !== 'quit' ? `${logs[today]?.value || 0}/${targetOf(h)}` : null} />
         </div>
-        <DotGrid level={(d) => (isScheduled(h, d) ? progressOf(h, logs[d]) : null)} color={h.color} from={createdDay(h)} dot={11} gap={3} />
+        <DotGrid level={(d) => (isScheduled(h, d) || progressOf(h, logs[d]) > 0 ? progressOf(h, logs[d]) : null)} color={h.color} from={createdDay(h)} dot={11} gap={3} />
       </motion.div>
 
       <div className="kpis" style={{ marginTop: 12 }}>
@@ -146,7 +146,7 @@ function MonthToggle({ h, logs, onTap }) {
             const future = k > today
             const off = k < from || !isScheduled(h, k)
             const p = future ? 0 : progressOf(h, logs[k])
-            const active = !future && !(k < from)
+            const active = !future
             return (
               <motion.button
                 key={k}

@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { useStore } from '../lib/store'
+import { useStore, getState } from '../lib/store'
 import { parseFile, planImport, commitImport } from '../lib/import'
 import { go } from '../lib/ui'
 import { plain } from '../lib/render'
@@ -8,6 +8,7 @@ import { plural } from '../lib/day'
 import { EMOJIS, pickEmoji } from '../lib/palette'
 import Icon from '../components/Icon'
 import { TopBar, soft, spring } from '../components/ui'
+import { PACKS } from '../lib/packs/phrases'
 
 const JSON_EXAMPLE = `{
   "sections": [
@@ -106,6 +107,21 @@ export default function Import({ sectionId }) {
 
   const liveSections = Object.values(sections).filter((s) => !s.deleted)
 
+  // Готовый набор кладём в раздел, где уже лежат английские слова; если такого нет — в новый «Английский»
+  async function addPack(p) {
+    const st = getState()
+    const vocabDeck = Object.values(st.decks).find((d) => !d.deleted && d.kind === 'vocab' && st.sections[d.section_id] && !st.sections[d.section_id].deleted)
+    const cards = p.cards()
+    const pack = { groups: [{ path: [p.name], kind: 'vocab', cards }], media: [], total: cards.length }
+    const plan = planImport(pack, sectionId || vocabDeck?.section_id || { newName: 'Английский' }, p.name)
+    setBusy(true)
+    try {
+      setResult(await commitImport(pack, plan))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="screen no-tabs">
       <TopBar title="Импорт" />
@@ -157,6 +173,26 @@ export default function Import({ sectionId }) {
               <div className="error" style={{ marginTop: 14 }}>
                 {error}
               </div>
+            )}
+
+            {!parsed && !busy && (
+              <>
+                <div className="section-label">Готовые наборы</div>
+                {PACKS.map((p) => (
+                  <motion.button key={p.id} className="card pack-card" whileTap={{ scale: 0.98 }} transition={spring} onClick={() => addPack(p)}>
+                    <span className="pack-emoji">{p.emoji}</span>
+                    <span className="main">
+                      <b>
+                        {p.name} · {p.cards().length}
+                      </b>
+                      <small>{p.hint}</small>
+                    </span>
+                    <span className="pack-add">
+                      <Icon name="plus" size={18} />
+                    </span>
+                  </motion.button>
+                ))}
+              </>
             )}
 
             {parsed && (

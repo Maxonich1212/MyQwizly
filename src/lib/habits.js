@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useStore, upsert, getState } from './store'
+import { useStore, upsert, patch, getState } from './store'
 import { addDays, dayKey, weekStart, parseKey } from './day'
 
 export const HABIT_COLORS = [
@@ -130,8 +130,26 @@ export function tapHabit(h, day = dayKey(), value) {
   else if (h.tracking === 'count') next = curVal >= targetOf(h) ? 0 : curVal + 1
   else next = curVal >= targetOf(h) ? 0 : targetOf(h)
   upsert('habit_logs', { id, habit_id: h.id, day, value: next, note: cur?.note ?? null, deleted: next <= 0 && !cur?.note })
+  if (next > 0) backdate(h, day)
   navigator.vibrate?.(next > 0 ? 10 : 6)
   return next
+}
+
+// Отметил день раньше создания привычки (создал сегодня, а сделал ещё вчера) — привычка «начинается» с этого дня,
+// иначе отметка сохранится, но календарь, серия и статистика её не покажут
+export function backdate(h, day) {
+  if (day >= createdDay(h)) return
+  const d = parseKey(day)
+  d.setHours(12, 0, 0, 0)
+  patch('habits', h.id, { created_at: d.getTime() })
+}
+
+// Чинит привычки, у которых уже есть отметки раньше даты создания
+export function healBackdated(habits, logs) {
+  for (const h of habits) {
+    const days = Object.keys(logs[h.id] || {}).filter((d) => logs[h.id][d].value > 0).sort()
+    if (days[0] && days[0] < createdDay(h)) backdate(h, days[0])
+  }
 }
 
 export function setNote(h, day, note) {

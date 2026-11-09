@@ -14,7 +14,7 @@ import GoSheet from '../components/GoSheet'
 import { Rocket } from 'lucide-react'
 import { Composition, Missing } from './Section'
 
-const CAT_COLOR = Object.fromEntries(CATEGORIES.map((c) => [c.k, c.color]))
+const CAT_COLOR = { ...Object.fromEntries(CATEGORIES.map((c) => [c.k, c.color])), off: 'transparent' }
 
 export default function Deck({ id }) {
   const deck = useStore((s) => s.decks[id])
@@ -77,6 +77,7 @@ export default function Deck({ id }) {
           options={[
             { value: 'all', label: 'Все' },
             ...CATEGORIES.map((c) => ({ value: c.k, label: c.label })),
+            ...(comp.off ? [{ value: 'off', label: `Не учу · ${comp.off}` }] : []),
           ]}
         />
       </div>
@@ -104,8 +105,8 @@ export default function Deck({ id }) {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0, height: 0 }}
               >
-                <i className="dot" style={{ background: CAT_COLOR[cat] }} />
-                <div className="main">
+                <i className="dot" style={{ background: CAT_COLOR[cat], boxShadow: cat === 'off' ? 'inset 0 0 0 1.5px var(--text-3)' : undefined }} />
+                <div className="main" style={{ opacity: cat === 'off' ? 0.5 : 1 }}>
                   <div className="t">{plain(n.front, 90)}</div>
                   <div className="s">{plain(n.back, 110)}</div>
                 </div>

@@ -247,6 +247,19 @@ export function NoteEditor({ open, onClose, deck, note }) {
           </div>
         </>
       )}
+      {note && (
+        <button
+          className="btn block secondary"
+          style={{ marginTop: 4, marginBottom: 6 }}
+          onClick={() => {
+            patch('notes', note.id, { suspended: !note.suspended })
+            toast(note.suspended ? 'Карточка снова в учёбе' : 'Больше не попадётся. Вернуть — в колоде, фильтр «Не учу»')
+            onClose()
+          }}
+        >
+          {note.suspended ? '↩︎ Вернуть в учёбу' : '🚫 Не учить эту карточку'}
+        </button>
+      )}
       <div className="row" style={{ marginTop: 8 }}>
         {note ? (
           <button className="btn danger" onClick={del} aria-label="Удалить">

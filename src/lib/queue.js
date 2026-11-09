@@ -1,8 +1,5 @@
-import { dirsFor } from './srs'
-import { dayKey } from './day'
-
-// Как в Anki: карточки на изучении, которые вернутся в ближайшие 20 минут, можно показать заранее
-export const LEARN_AHEAD_MS = 20 * 60e3
+import { dirsFor, noteStatus } from './srs'
+import { stripHtml } from './check'
 
 // scope: { all: true } | { sectionId } | { deckId }
 export function scopeDecks(decks, scope) {
@@ -11,94 +8,113 @@ export function scopeDecks(decks, scope) {
   )
 }
 
-// Сколько новых карточек уже начато сегодня в каждой колоде
-export function newSeenToday(reviews) {
-  const today = dayKey()
-  const out = {}
-  for (const r of Object.values(reviews)) {
-    if (r.day === today && r.state === 0) out[r.deck_id] = (out[r.deck_id] || 0) + 1
-  }
-  return out
+// Артикли и одиночные буквы в словаре — не слова, учить там нечего («a», «an», «the»)
+const NOT_WORDS = new Set(['a', 'an', 'the'])
+export function isTrivial(note, deck) {
+  if (deck?.kind !== 'vocab') return false
+  const w = stripHtml(note.front || '').trim().toLowerCase()
+  return NOT_WORDS.has(w) || (w.length <= 1 && w !== 'i')
 }
 
-export function buildQueue({ notes, decks, scope, now = Date.now() }) {
-  const deckList = scopeDecks(decks, scope)
-  const deckById = Object.fromEntries(deckList.map((d) => [d.id, d]))
-  const today = dayKey(now)
-  const due = []
-  const later = []
-  const fresh = {}
+// Карточка участвует в учёбе: не удалена, не убрана вручную и не мусорная
+export function isActive(note, deck) {
+  return !!deck && !deck.deleted && !note.deleted && !note.suspended && !isTrivial(note, deck)
+}
 
+// Последний ответ на каждую запись (в любом направлении)
+export function lastByNote(reviews) {
+  const last = {}
+  for (const r of Object.values(reviews || {})) {
+    const cur = last[r.note_id]
+    if (!cur || r.reviewed_at > cur.at) last[r.note_id] = { rating: r.rating, at: r.reviewed_at, dir: r.dir }
+  }
+  return last
+}
+
+// Кучки как в Quizlet — по ПОСЛЕДНЕМУ ответу на запись, в каком бы направлении он ни был:
+// «Знаю» в EN→RU значит, что слово выучено целиком, и RU→EN его тоже больше не спросят.
+// 'off' — карточка убрана из учёбы
+export function categoryOf(note, deck, last) {
+  if (!isActive(note, deck)) return 'off'
+  const l = last[note.id]
+  // Оценки «Трудно» из прошлых версий (2) считаем как «не знаю»: уверенности не было
+  if (l) return l.rating >= 3 ? 'known' : 'unknown'
+  return noteStatus(note, deck).status === 'new' ? 'todo' : 'known'
+}
+
+export function shuffle(list) {
+  for (let i = list.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[list[i], list[j]] = [list[j], list[i]]
+  }
+  return list
+}
+
+// Направление для слова: где ошибся — то и спрашиваем, новое — случайное
+function pickDir(deck, l) {
+  const dirs = dirsFor(deck)
+  if (l?.dir && dirs.includes(l.dir)) return l.dir
+  return dirs[Math.floor(Math.random() * dirs.length)]
+}
+
+// «Повторить»: всё, что ещё не знаешь, — кучка «Не знаю» и непройденные. «Знаю» в план не попадает никогда.
+// Порядок каждый раз новый и вперемешку по колодам; ошибки вкраплены между новыми (1 к 2),
+// чтобы при большой колоде до них доходило в начале, а не через тысячу новых слов.
+export function buildQueue({ notes, decks, reviews, scope }) {
+  const deckById = Object.fromEntries(scopeDecks(decks, scope).map((d) => [d.id, d]))
+  const last = lastByNote(reviews)
+  const wrong = []
+  const fresh = []
   for (const n of Object.values(notes)) {
     const deck = deckById[n.deck_id]
-    if (!deck || n.deleted || n.suspended) continue
-    for (const dir of dirsFor(deck)) {
-      const c = n.srs?.[dir]
-      if (c) {
-        if (c.due <= now) due.push({ note: n.id, dir, due: c.due })
-        else if (c.due <= now + LEARN_AHEAD_MS && c.state !== 2) later.push({ note: n.id, dir, due: c.due })
-        continue
-      }
-      // Обратную сторону новой пары не показываем в тот же день, что и прямую
-      if (dir === 'rev') {
-        const f = n.srs?.fwd
-        if (!f || dayKey(f.last_review || 0) === today) continue
-      }
-      ;(fresh[deck.id] ||= []).push({ note: n.id, dir, created: n.created_at, isNew: true })
-      break
-    }
+    if (!deck) continue
+    const cat = categoryOf(n, deck, last)
+    if (cat === 'unknown') wrong.push({ note: n.id, dir: pickDir(deck, last[n.id]) })
+    else if (cat === 'todo') fresh.push({ note: n.id, dir: pickDir(deck), isNew: true })
   }
-
-  // Без дневного лимита новых: добавил карточки — сразу можно учить
-  const news = []
-  for (const list of Object.values(fresh)) {
-    list.sort((a, b) => a.created - b.created)
-    news.push(...list)
-  }
-
-  due.sort((a, b) => a.due - b.due)
-  // Новые вкрапляем между повторениями, чтобы сессия не начиналась с горы незнакомого
+  shuffle(wrong)
+  shuffle(fresh)
   const queue = []
-  let ni = 0
-  for (let i = 0; i < due.length; i++) {
-    queue.push(due[i])
-    if (i % 3 === 2 && ni < news.length) queue.push(news[ni++])
+  let w = 0
+  let f = 0
+  while (w < wrong.length || f < fresh.length) {
+    if (w < wrong.length) queue.push(wrong[w++])
+    for (let k = 0; k < 2 && f < fresh.length; k++) queue.push(fresh[f++])
   }
-  while (ni < news.length) queue.push(news[ni++])
-  later.sort((a, b) => a.due - b.due)
-  return { queue, later, counts: { due: due.length, fresh: news.length } }
+  return { queue, later: [], counts: { due: wrong.length, fresh: fresh.length } }
 }
 
 // Сводка «к повторению» по разделам/колодам для главного экрана
 export function dueSummary(state, scope) {
-  const { counts, later } = buildQueue({ ...state, scope })
-  return { due: counts.due, fresh: counts.fresh, soon: later.length, total: counts.due + counts.fresh }
+  const { counts } = buildQueue({ ...state, scope })
+  return { due: counts.due, fresh: counts.fresh, soon: 0, total: counts.due + counts.fresh }
 }
 
-// «Погнали»: n случайных карточек из выбранного — в любом статусе, ответы засчитываются как обычно.
-// ids — ограничить конкретными записями (например, «ошибки» из состава раздела)
-export function randomQueue({ notes, decks }, scope, n, ids) {
+// Что берёт «Погнали»: всё невыученное; если выучено всё — тогда уж всё подряд (прогнать выученное)
+function goPool({ notes, decks, reviews }, scope, ids) {
   const deckById = Object.fromEntries(scopeDecks(decks, scope).map((d) => [d.id, d]))
+  const last = lastByNote(reviews)
   const only = ids ? new Set(ids) : null
-  const items = []
+  const open = []
+  const all = []
   for (const note of Object.values(notes)) {
     const deck = deckById[note.deck_id]
-    if (!deck || note.deleted || note.suspended || (only && !only.has(note.id))) continue
-    // У слов направление выбираем случайно, чтобы одна пара не попадалась дважды подряд
-    const dirs = dirsFor(deck)
-    const dir = dirs[Math.floor(Math.random() * dirs.length)]
-    items.push({ note: note.id, dir, isNew: !note.srs?.[dir] })
+    if (!deck || (only && !only.has(note.id))) continue
+    const cat = categoryOf(note, deck, last)
+    if (cat === 'off') continue
+    const item = { note: note.id, dir: pickDir(deck, cat === 'unknown' ? last[note.id] : null), isNew: cat === 'todo' }
+    all.push(item)
+    if (cat !== 'known') open.push(item)
   }
-  for (let i = items.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[items[i], items[j]] = [items[j], items[i]]
-  }
-  return { queue: items.slice(0, n), later: [] }
+  // Явный список (кучка «Знаю» → «Повторить эти») — берём как есть
+  return only || !open.length ? all : open
 }
 
-export function countInScope({ notes, decks }, scope) {
-  const deckIds = new Set(scopeDecks(decks, scope).map((d) => d.id))
-  let n = 0
-  for (const note of Object.values(notes)) if (deckIds.has(note.deck_id) && !note.deleted && !note.suspended) n++
-  return n
+// «Погнали»: n случайных записей; у слов — одно направление на запись, второе не попадётся
+export function randomQueue(state, scope, n, ids) {
+  return { queue: shuffle(goPool(state, scope, ids)).slice(0, n), later: [] }
+}
+
+export function countInScope(state, scope) {
+  return goPool(state, scope).length
 }

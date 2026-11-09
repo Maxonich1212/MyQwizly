@@ -20,7 +20,8 @@ function parse(scope) {
 export default function GoSheet({ open, onClose, scope = 'all', title = 'Погнали' }) {
   const notes = useStore((s) => s.notes)
   const decks = useStore((s) => s.decks)
-  const total = useMemo(() => countInScope({ notes, decks }, parse(scope)), [notes, decks, scope])
+  const reviews = useStore((s) => s.reviews)
+  const total = useMemo(() => countInScope({ notes, decks, reviews }, parse(scope)), [notes, decks, reviews, scope])
   const [n, setN] = useState(10)
 
   useEffect(() => {
@@ -42,7 +43,7 @@ export default function GoSheet({ open, onClose, scope = 'all', title = 'Пог�
         </motion.div>
         <h3 style={{ margin: '0 0 4px' }}>{title}</h3>
         <p className="muted small" style={{ margin: '0 0 18px' }}>
-          Сколько карточек повторить? Выдам случайные из {total} {plural(total, 'карточки', 'карточек', 'карточек')}.
+          Сколько карточек? Выдам случайные из {total} {plural(total, 'невыученной', 'невыученных', 'невыученных')} — то, что знаешь, не попадётся.
         </p>
       </div>
 

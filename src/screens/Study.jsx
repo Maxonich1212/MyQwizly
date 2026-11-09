@@ -193,6 +193,18 @@ function Learn({ scope: scopeStr, goCount, goIds }) {
     shownAt.current = Date.now()
   }, [session])
 
+  // Карточку убрали из учёбы (или удалили) прямо во время сессии — молча переходим к следующей
+  useEffect(() => {
+    if (!current || !note || (!note.suspended && !note.deleted)) return
+    setRound((r) => ({ ...r, total: Math.max(r.done, r.total - 1) }))
+    setExitKind({ type: 'next', rating: 3 })
+    setRevealed(false)
+    setInput('')
+    setUnknown(false)
+    setCurrent(session.queue.shift() || null)
+    shownAt.current = Date.now()
+  }, [note?.suspended, note?.deleted]) // eslint-disable-line
+
   // Клавиатура: пробел/Enter — показать ответ; ← или 1 — не знаю, → или 2 — знаю
   useEffect(() => {
     function on(e) {

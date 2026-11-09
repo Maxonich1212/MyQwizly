@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useStore } from './store'
 import { aggregate, globalStreak, sectionStreak } from './stats'
-import { buildQueue } from './queue'
+import { buildQueue, categoryOf, lastByNote } from './queue'
 import { noteStatus } from './srs'
 import { dayKey } from './day'
 
@@ -49,31 +49,16 @@ export function useDue(scope) {
 // Последний ответ на каждую запись — по нему видно, ошибка это или пройдено
 export function useLastRatings() {
   const reviews = useStore((s) => s.reviews)
-  return useMemo(() => {
-    const last = {}
-    for (const r of Object.values(reviews)) {
-      const cur = last[r.note_id]
-      if (!cur || r.reviewed_at > cur.at) last[r.note_id] = { rating: r.rating, at: r.reviewed_at }
-    }
-    return last
-  }, [reviews])
+  return useMemo(() => lastByNote(reviews), [reviews])
 }
 
-// Кучки (как в Quizlet): «Знаю» и «Не знаю» — по ПОСЛЕДНЕМУ ответу на карточку, независимо от расписания повторений
-// и от того, в какой сессии ответил. «Не пройдено» — на карточку ещё ни разу не отвечал.
-// Ответил иначе в следующий раз — карточка сама переезжает в другую кучку.
+export { categoryOf }
+
 export const CATEGORIES = [
   { k: 'unknown', label: 'Не знаю', color: 'var(--again)' },
   { k: 'known', label: 'Знаю', color: 'var(--good)' },
   { k: 'todo', label: 'Не пройдено', color: 'color-mix(in srgb, var(--text) 30%, transparent)' },
 ]
-
-export function categoryOf(note, deck, last) {
-  const l = last[note.id]
-  // Оценки «Трудно» из прошлых версий (2) считаем как «не знаю»: уверенности не было
-  if (l) return l.rating >= 3 ? 'known' : 'unknown'
-  return noteStatus(note, deck).status === 'new' ? 'todo' : 'known'
-}
 
 export function useComposition(deckIds) {
   const notes = useStore((s) => s.notes)
@@ -82,11 +67,16 @@ export function useComposition(deckIds) {
   const key = deckIds.join(',')
   return useMemo(() => {
     const set = new Set(deckIds)
-    const out = { total: 0, todo: 0, unknown: 0, known: 0, mature: 0, ids: { todo: [], unknown: [], known: [] } }
+    const out = { total: 0, todo: 0, unknown: 0, known: 0, off: 0, mature: 0, ids: { todo: [], unknown: [], known: [], off: [] } }
     for (const n of Object.values(notes)) {
       if (n.deleted || !set.has(n.deck_id)) continue
       const deck = decks[n.deck_id]
       const c = categoryOf(n, deck, last)
+      if (c === 'off') {
+        out.off++
+        out.ids.off.push(n.id)
+        continue
+      }
       out.total++
       out[c]++
       out.ids[c].push(n.id)

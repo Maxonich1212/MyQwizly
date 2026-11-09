@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
 import { Plus, LayoutGrid, ListChecks, CalendarDays, CalendarCheck, StickyNote, Pencil, ArrowUpDown, Archive, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { patch, remove } from '../lib/store'
-import { useHabits, useHabitLogs, progressOf, isScheduled, tapHabit, habitStats, targetOf, createdDay, setNote } from '../lib/habits'
+import { useHabits, useHabitLogs, progressOf, isScheduled, tapHabit, habitStats, targetOf, createdDay, setNote, healBackdated } from '../lib/habits'
 import { addDays, dayKey, parseKey, fmtDay, monthName, plural, toKey } from '../lib/day'
 import { go } from '../lib/ui'
 import HabitIcon from '../components/HabitIcon'
@@ -37,6 +37,7 @@ export default function Habits() {
   // За какой день ставятся галочки: сегодня или вчера (если забыл отметить вечером)
   const [markYesterday, setMarkYesterday] = useState(false)
   const markDay = markYesterday ? addDays(dayKey(), -1) : dayKey()
+  useEffect(() => healBackdated(habits, logs), [habits, logs])
 
   const cats = useMemo(() => [...new Set(habits.map((h) => h.category).filter(Boolean))], [habits])
   const list = cat === 'all' ? habits : habits.filter((h) => h.category === cat)
@@ -204,7 +205,7 @@ function HabitCard({ h, logs, i, day, onTap, onMenu }) {
           </span>
         )}
       </div>
-      <DotGrid level={(d) => (isScheduled(h, d) ? progressOf(h, logs[d]) : null)} color={h.color} from={createdDay(h)} />
+      <DotGrid level={(d) => (isScheduled(h, d) || progressOf(h, logs[d]) > 0 ? progressOf(h, logs[d]) : null)} color={h.color} from={createdDay(h)} />
       <div className="row mono-label" style={{ marginTop: 12, fontSize: 10.5, gap: 14 }}>
         <span style={{ color: st.current ? h.color : undefined }}>
           ● серия {st.current} {st.unit === 'week' ? 'нед' : 'дн'}
@@ -265,9 +266,9 @@ function WeekRow({ h, logs, days, onTap, onMenu }) {
         const before = d < createdDay(h)
         const sched = isScheduled(h, d)
         const p = progressOf(h, logs[d])
-        if (before || !sched) return <div key={d} className="cell off" />
+        // Нерабочий день и день до создания тоже можно отметить: сделал — значит сделал
         return (
-          <motion.button key={d} className="cell" whileTap={{ scale: 0.85 }} transition={liquid} onClick={() => onTap(h, d)} aria-label={d}>
+          <motion.button key={d} className={`cell ${(before || !sched) && !p ? 'off' : ''}`} whileTap={{ scale: 0.85 }} transition={liquid} onClick={() => onTap(h, d)} aria-label={d}>
             <motion.i
               style={{ position: 'absolute', left: 0, right: 0, bottom: 0, background: h.color, borderRadius: 11 }}
               initial={false}
@@ -342,7 +343,7 @@ function MonthTile({ h, logs, month, day, onTap, onMenu }) {
   const lp = useLongPress((at) => onMenu(h, at))
   const today = day
   const p = progressOf(h, logs[today])
-  const done = p >= 1 && isScheduled(h, today)
+  const done = p >= 1
   const countLabel = h.tracking !== 'check' && h.kind !== 'quit' && p < 1 ? `${logs[today]?.value || 0}` : null
   return (
     <motion.div
@@ -358,7 +359,7 @@ function MonthTile({ h, logs, month, day, onTap, onMenu }) {
         <div className="tile-name">{h.name}</div>
         <LiquidCheck round size={24} progress={p} color={h.color} label={countLabel} onTap={() => onTap(h, today)} onLongPress={(at) => onMenu(h, at)} />
       </div>
-      <MonthDots month={month} color={h.color} level={(d) => (d < createdDay(h) || !isScheduled(h, d) ? 0 : progressOf(h, logs[d]))} />
+      <MonthDots month={month} color={h.color} level={(d) => (d < createdDay(h) ? 0 : progressOf(h, logs[d]))} />
     </motion.div>
   )
 }

@@ -4541,3 +4541,137 @@ body,
   line-height: 1.2;
   overflow: visible;
 }
+
+/* Кучка по колодам: шапка группы с кнопкой «пройти эту», под ней пара карточек для узнавания */
+.pile-group {
+  border-radius: 20px;
+  padding: 12px 12px 6px;
+  margin-bottom: 10px;
+  background: color-mix(in srgb, var(--c) 9%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--c) 22%, transparent);
+}
+.pile-group-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 2px 8px;
+}
+.pile-group-head .main {
+  flex: 1;
+  min-width: 0;
+}
+.pile-group-head .t {
+  font-weight: 650;
+  font-size: 15.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pile-group-head .s {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 1px;
+}
+.pile-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-weight: 650;
+  font-size: 14px;
+  color: #fff;
+  background: var(--c);
+  box-shadow: 0 6px 16px -8px var(--c);
+  flex: none;
+}
+.pile-items {
+  display: flex;
+  flex-direction: column;
+}
+.pile-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 38px;
+  padding: 6px 4px;
+  text-align: left;
+  border-top: 1px solid color-mix(in srgb, var(--text) 7%, transparent);
+}
+.pile-item .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+.pile-item .t {
+  font-weight: 560;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 55%;
+}
+.pile-item .s {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
+}
+.pile-more {
+  height: 36px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--c);
+  border-top: 1px solid color-mix(in srgb, var(--text) 7%, transparent);
+}
+
+/* Готовый набор в импорте */
+.pack-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  text-align: left;
+  margin-bottom: 10px;
+}
+.pack-card .pack-emoji {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  background: var(--surface-2);
+  flex: none;
+}
+.pack-card .main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.pack-card small {
+  color: var(--text-3);
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pack-add {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: var(--accent);
+  flex: none;
+}

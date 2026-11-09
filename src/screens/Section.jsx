@@ -154,36 +154,75 @@ export function Composition({ comp, onPick, active }) {
 }
 
 // Список карточек одной категории раздела + «Повторить эти»
+// Кучка разложена по колодам: ошибки набрались из разных тем — проходишь нужную, а не всё сразу
 export function CategorySheet({ cat, ids, onClose }) {
   const notes = useStore((s) => s.notes)
   const decks = useStore((s) => s.decks)
+  const sections = useStore((s) => s.sections)
+  const [open, setOpen] = useState({})
   const meta = CATEGORIES.find((c) => c.k === cat)
-  const list = (ids || []).map((id) => notes[id]).filter(Boolean)
-  const practice = () => {
-    sessionStorage.setItem('mq-go-ids', JSON.stringify(ids))
+  const groups = useMemo(() => {
+    const by = {}
+    for (const id of ids || []) {
+      const n = notes[id]
+      if (!n) continue
+      ;(by[n.deck_id] ||= []).push(n)
+    }
+    return Object.entries(by)
+      .map(([deckId, list]) => {
+        const deck = decks[deckId]
+        return { deck, section: deck ? sections[deck.section_id] : null, list }
+      })
+      .sort((a, b) => b.list.length - a.list.length)
+  }, [ids, notes, decks, sections])
+  const total = groups.reduce((a, g) => a + g.list.length, 0)
+  const practice = (list) => {
+    const only = list.map((n) => n.id)
+    sessionStorage.setItem('mq-go-ids', JSON.stringify(only))
     onClose()
-    go(`/study/go:${ids.length}:ids`)
+    go(`/study/go:${only.length}:ids`)
   }
+  const all = groups.flatMap((g) => g.list)
   return (
-    <Sheet open={!!cat} onClose={onClose} title={meta ? `${meta.label} · ${list.length}` : ''}>
+    <Sheet open={!!cat} onClose={onClose} title={meta ? `${meta.label} · ${total}` : ''}>
       {meta && (
         <>
-          <button className="btn primary block" style={{ marginBottom: 14 }} onClick={practice} disabled={!list.length}>
-            <Rocket size={17} /> Повторить эти · {list.length}
-          </button>
-          <div className="card list" style={{ boxShadow: 'none' }}>
-            {list.slice(0, 200).map((n) => (
-              <button key={n.id} className="list-item" onClick={() => (onClose(), go(`/d/${n.deck_id}`))}>
-                <i className="dot" style={{ background: meta.color }} />
-                <div className="main">
-                  <div className="t">{plain(n.front, 90)}</div>
-                  <div className="s">
-                    {decks[n.deck_id]?.name} · {plain(n.back, 70)}
+          {groups.length > 1 && (
+            <button className="btn secondary block" style={{ marginBottom: 14 }} onClick={() => practice(all)} disabled={!total}>
+              <Rocket size={17} /> Все вперемешку · {total}
+            </button>
+          )}
+          {groups.map(({ deck, section, list }) => {
+            const expanded = open[deck?.id] || groups.length === 1
+            const shown = expanded ? list.slice(0, 200) : list.slice(0, 3)
+            return (
+              <div key={deck?.id || 'x'} className="pile-group" style={{ '--c': section ? color(section.color).from : meta.color }}>
+                <div className="pile-group-head">
+                  <div className="main">
+                    <div className="t">{deck?.name || 'Без колоды'}</div>
+                    <div className="s">{section?.name}</div>
                   </div>
+                  <motion.button className="pile-go" whileTap={{ scale: 0.93 }} onClick={() => practice(list)}>
+                    <Rocket size={15} /> Пройти · {list.length}
+                  </motion.button>
                 </div>
-              </button>
-            ))}
-          </div>
+                <div className="pile-items">
+                  {shown.map((n) => (
+                    <button key={n.id} className="pile-item" onClick={() => (onClose(), go(`/d/${n.deck_id}`))}>
+                      <i className="dot" style={{ background: meta.color }} />
+                      <span className="t">{plain(n.front, 70)}</span>
+                      <span className="s">{plain(n.back, 40)}</span>
+                    </button>
+                  ))}
+                  {list.length > shown.length && (
+                    <button className="pile-more" onClick={() => setOpen({ ...open, [deck?.id]: true })}>
+                      Показать все · {list.length}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
         </>
       )}
     </Sheet>
